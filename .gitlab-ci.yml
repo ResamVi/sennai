@@ -1,0 +1,14 @@
+# Official docker compose image.
+image:
+  name: docker/compose:latest
+
+services:
+  - docker:dind
+
+build_frontend:
+  stage: build
+  script:
+    - yarn
+    - yarn build
+    - rm -rf /var/www/race.resamvi.io
+    - mv dist /var/www/race.resamvi.io
