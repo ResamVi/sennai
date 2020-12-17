@@ -13,12 +13,15 @@ export default class MainScene extends Phaser.Scene
     private cursors:        Phaser.Types.Input.Keyboard.CursorKeys; // TODO: Put into dedicated controls module
     private text:           Phaser.GameObjects.Text;
     
-    private engineforce:    number                          = 0;
     
-    private acceleration:   Phaser.Math.Vector2         = new Phaser.Math.Vector2(0, 0);
+    private acceleration:   Phaser.Math.Vector2             = new Phaser.Math.Vector2(0, 0);
     private velocity:       Phaser.Math.Vector2             = new Phaser.Math.Vector2(0, 0);
     private position:       Phaser.Math.Vector2             = new Phaser.Math.Vector2(100, 100);
-    
+    private F_drive:        number                          = 0;
+
+    private readonly ENGINEFORCE    = 100;
+    private readonly BRAKEFORCE     = 250;
+
     /**
      * Using values from a Tesla Model S
      * 
@@ -38,7 +41,7 @@ export default class MainScene extends Phaser.Scene
     
     private readonly C_drag         = 0.5 * this.C_d * this.A * this.rho;
     private readonly C_rr           = 0.02; // Asphalt
-
+    
     constructor ()
     {
         super('demo');
@@ -108,28 +111,35 @@ export default class MainScene extends Phaser.Scene
     {
         if (this.cursors.up.isDown)
         {
-            this.engineforce = 50;
+            this.F_drive = this.ENGINEFORCE;
         }
         else if (this.cursors.down.isDown)
         {
-            this.engineforce = -50;
+            this.F_drive = -this.BRAKEFORCE;
         }
         else {
-            this.engineforce = 0;
+            this.F_drive = 0;
         }
     }
 
     applyPhysics(time, delta)
-    {
-        let F_traction      = this.direction()      .scale(this.engineforce);
+    {   
+        let F_traction      = this.direction()      .scale(this.F_drive);
         let F_drag          = this.velocity.clone() .scale(-this.C_drag * this.velocity.length());
-        let F_rollresist    = this.velocity.clone() .scale(this.C_rr);
+        let F_rollresist    = this.velocity.clone() .scale(-this.C_rr);
 
-        let F_longitudinal  = F_traction.add(F_drag).add(F_rollresist);
+        let F_longitudinal  = F_traction.add(F_drag).add(F_rollresist); // F_long = F_traction + F_drag + F_rr
 
-        this.acceleration   = F_longitudinal.scale(1 / this.M); // a = F/M
-        this.velocity.add(this.acceleration);                   // v = v + dt * a
-        this.position.add(this.velocity);                       // p = p + dt * v
+        // Avoid going in reverse when braking 
+        if(this.F_drive == -this.BRAKEFORCE && this.velocity.length() < 0.2)
+        {
+            F_longitudinal  = Phaser.Math.Vector2.ZERO;
+            this.velocity   = Phaser.Math.Vector2.ZERO;
+        }
+
+        this.acceleration   = F_longitudinal.scale(1 / this.M);         // a = F/M
+        this.velocity.add(this.acceleration);                           // v = v + dt * a
+        this.position.add(this.velocity);                               // p = p + dt * v
         
         this.player[0].setPosition(this.position.x, this.position.y);
 
