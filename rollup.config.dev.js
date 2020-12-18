@@ -43,8 +43,7 @@ export default {
         //  We need to convert the Phaser 3 CJS modules into a format Rollup can use:
         commonjs({
             include: [
-                'node_modules/eventemitter3/**',
-                'node_modules/phaser/**'
+                'node_modules/**'
             ],
             exclude: [ 
                 'node_modules/phaser/src/polyfills/requestAnimationFrame.js'
