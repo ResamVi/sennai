@@ -1,5 +1,5 @@
 import 'phaser';
-import { makeHull } from './convexHull';
+import { makeHull, centerOfMass, scalePolygon, meanCenter } from './algorithms';
 
 // TODO: Move to util?
 let round = function(numb) {
@@ -54,6 +54,8 @@ export default class MainScene extends Phaser.Scene
     annotation = [];
     style = { fontFamily: 'Tahoma ', fontSize: 64};
     texts: Phaser.GameObjects.Text[] = [];
+    center: Phaser.Geom.Point;
+    centre: Phaser.Geom.Point;
 
     constructor ()
     {
@@ -116,10 +118,11 @@ export default class MainScene extends Phaser.Scene
     // TODO: Separate into other module
     generateTrack()
     {
-        this.additional = [];
-        this.interpolated = [];
-        this.points = [];
-        this.annotation = [];
+        this.additional     = [];
+        this.interpolated   = [];
+        this.points         = [];
+        this.annotation     = [];
+        this.track          = [];
 
         for(let i = 0; i < 40; i++)
         {
@@ -183,6 +186,10 @@ export default class MainScene extends Phaser.Scene
         
         this.track = newTrack;
 
+        // Calculate center of gravity (we scale off of this point later)
+        this.center = centerOfMass(this.track);
+        this.centre = meanCenter(this.track);
+
         // Annotate corners with angle
         /*for(let current = 0; current < this.track.length; current++)
         {
@@ -206,7 +213,7 @@ export default class MainScene extends Phaser.Scene
         // Smooth out track
         let xSet = this.track.map(p => p.x);
         let ySet = this.track.map(p => p.y);
-        for(let f = 0; f <= 1; f+= 0.005)
+        for(let f = 0; f <= 1; f+= 0.0001)
         {
             let x = Phaser.Math.Interpolation.CatmullRom(xSet, f);
             let y = Phaser.Math.Interpolation.CatmullRom(ySet, f);
@@ -320,11 +327,19 @@ export default class MainScene extends Phaser.Scene
         // Track
         this.graphics.lineStyle(2, 0x00ff00)
         this.graphics.strokePoints(this.track);
-        
+
+        // Track bounds
+        this.graphics.lineStyle(2, 0xffffff);
+        let inner = scalePolygon(this.interpolated, this.center, 1.1);
+        let outer = scalePolygon(this.interpolated, this.center, 0.9);
+        this.graphics.strokePoints(inner);
+        this.graphics.strokePoints(outer);
+
         // Track Corners
         this.graphics.fillStyle(0x00ff00);
         for(let p of this.track)
             this.graphics.fillCircle(p.x, p.y, 20);
+
 
         // Added track corners
         this.graphics.fillStyle(0xff0000);
@@ -332,9 +347,17 @@ export default class MainScene extends Phaser.Scene
             this.graphics.fillCircle(p.x, p.y, 20);
 
         // Interpolation
-        this.graphics.fillStyle(0xffffff);
+        /*this.graphics.fillStyle(0xffffff);
         for(let p of this.interpolated)
-            this.graphics.fillCircle(p.x, p.y, 20);
+            this.graphics.fillCircle(p.x, p.y, 20);*/
+
+        // Center of Mass
+        this.graphics.fillStyle(0x0066ff);
+        this.graphics.fillCircle(this.center.x, this.center.y, 20);
+
+        // Mean Mass
+        this.graphics.fillStyle(0xffa500);
+        this.graphics.fillCircle(this.centre.x, this.centre.y, 20);
 
         //this.graphics.fillCircle(this.front_wheel.x, this.front_wheel.y, 5);
         //this.graphics.fillCircle(this.rear_wheel.x, this.rear_wheel.y, 5);
@@ -352,6 +375,26 @@ export default class MainScene extends Phaser.Scene
             //'time: '    + round(time),
             //'delta: '   + round(delta)
         //]);
+    }
+
+    /**
+     * For debugging purposes
+     * 
+     * @param from 
+     * @param to 
+     */
+    drawArrow(from: Phaser.Geom.Point, to: Phaser.Geom.Point)
+    {
+        const LINE_WIDTH = 50;
+        
+        this.graphics.lineStyle(10, 0xffa500)
+        this.graphics.lineBetween(from.x, from.y, to.x, to.y);
+        
+        let direction   = new Phaser.Math.Vector2(from.x - to.x, from.y - to.y);
+        let arrowhead1  = direction.clone().rotate(Math.PI/2 - Math.PI/4).normalize().scale(LINE_WIDTH);
+        let arrowhead2  = direction.clone().rotate(-Math.PI/2 + Math.PI/4).normalize().scale(LINE_WIDTH);
+        this.graphics.lineBetween(to.x, to.y, to.x + arrowhead1.x, to.y + arrowhead1.y);
+        this.graphics.lineBetween(to.x, to.y, to.x + arrowhead2.x, to.y + arrowhead2.y);
     }
 
     /**
