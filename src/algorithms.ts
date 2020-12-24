@@ -19,9 +19,6 @@
  * If not, see <http://www.gnu.org/licenses/>.
  */
 
-
-// ----------- CONVEX HULL --------------------------
-
 interface Point {
 	x: number;
 	y: number;
@@ -96,7 +93,6 @@ function POINT_COMPARATOR(a: Point, b: Point): number
 		return 0;
 }
 
-// ----------- CENTER OF MASS --------------------------
 /**
  * From here
  * 	https://stackoverflow.com/questions/5271583/center-of-gravity-of-a-polygon
@@ -166,4 +162,22 @@ export function scalePolygon(points: Phaser.Geom.Point[], center: Phaser.Geom.Po
 	}
 
 	return track;
+}
+
+
+export function trackBounds(points: Phaser.Geom.Point[]): Phaser.Geom.Point[]
+{
+	let result = [];
+	for(let i = 0; i < points.length - 1; i++)
+	{
+		let from 	= points[i];
+		let to		= points[i+1];
+
+		let direction 	= new Phaser.Math.Vector2(from.x - to.x, from.y - to.y);
+		let right_angle = direction.rotate(Math.PI/4).normalize().scale(50);
+
+		result.push(new Phaser.Geom.Point(to.x + right_angle.x, to.y + right_angle.y));
+	}
+
+	return result;
 }

@@ -332,8 +332,14 @@ export default class MainScene extends Phaser.Scene
         this.graphics.lineStyle(2, 0xffffff);
         let inner = scalePolygon(this.interpolated, this.center, 1.1);
         let outer = scalePolygon(this.interpolated, this.center, 0.9);
-        this.graphics.strokePoints(inner);
-        this.graphics.strokePoints(outer);
+        //this.graphics.strokePoints(inner);
+        //this.graphics.strokePoints(outer);
+
+        let inner2 = this.trackBounds(this.interpolated, true);
+        let outer2 = this.trackBounds(this.interpolated, false);
+        this.graphics.lineStyle(2, 0xff0000);
+        this.graphics.strokePoints(inner2);
+        this.graphics.strokePoints(outer2);
 
         // Track Corners
         this.graphics.fillStyle(0x00ff00);
@@ -363,6 +369,8 @@ export default class MainScene extends Phaser.Scene
         //this.graphics.fillCircle(this.rear_wheel.x, this.rear_wheel.y, 5);
         //this.graphics.lineBetween(x, y, x + vec.x, y + vec.y); // Orientation
 
+        
+
         //this.text.setText([
             //'x: '       + round(this.player.x),
             //'y: '       + round(this.player.y),
@@ -375,6 +383,30 @@ export default class MainScene extends Phaser.Scene
             //'time: '    + round(time),
             //'delta: '   + round(delta)
         //]);
+    }
+
+    trackBounds(points: Phaser.Geom.Point[], inner: boolean): Phaser.Geom.Point[]
+    {
+        const TRACK_WIDTH = 400;
+        
+        let sign = inner ? 1 : -1;
+        
+        let result = [];
+        for(let i = 0; i < points.length - 1; i++)
+        {
+            let from 	= points[i];
+            let to		= points[i+1];
+
+            let direction 	= new Phaser.Math.Vector2(from.x - to.x, from.y - to.y);
+            let right_angle = direction.rotate(sign * Math.PI/2).normalize().scale(TRACK_WIDTH);
+            
+            let p = new Phaser.Geom.Point(to.x + right_angle.x, to.y + right_angle.y);
+            //this.drawArrow(to, p);
+
+            result.push(p);
+        }
+
+        return result;
     }
 
     /**
