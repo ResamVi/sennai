@@ -1,5 +1,5 @@
 import 'phaser';
-import { makeHull, centerOfMass, scalePolygon, meanCenter } from './algorithms';
+import { makeHull } from './algorithms';
 
 // TODO: Move to util?
 let round = function(numb) {
@@ -15,9 +15,11 @@ export default class MainScene extends Phaser.Scene
     private readonly ENGINEPOWER    = 150;
     private readonly FRICTION       = -0.02;
     private readonly DRAG           = -0.00034;
-    private readonly TRACK_WIDTH    = 8000;
-    private readonly TRACK_HEIGHT   = 6000;
+    private readonly MAX_WIDTH      = 8000;
+    private readonly MAX_HEIGHT     = 6000;
     private readonly WHEEL_BASE     = 35;
+    private readonly TRACK_WIDTH    = 400;
+    private readonly MARGIN         = 10;
 
     private player:     Phaser.Physics.Matter.Image; // TODO: Bundle all objects into worlds module
     private dot:        Phaser.Physics.Matter.Image; // TODO: Bundle all objects into worlds module
@@ -40,6 +42,8 @@ export default class MainScene extends Phaser.Scene
     private track:          Phaser.Geom.Point[] = [];
     private additional:     Phaser.Geom.Point[] = []; // TODO: Remove: Debug Purpose
     private interpolated:   Phaser.Geom.Point[] = [];
+    private inner:          Phaser.Geom.Point[] = [];
+    private outer:          Phaser.Geom.Point[] = [];
 
     private rng: Phaser.Math.RandomDataGenerator = Phaser.Math.RND;
 
@@ -56,6 +60,7 @@ export default class MainScene extends Phaser.Scene
     texts: Phaser.GameObjects.Text[] = [];
     center: Phaser.Geom.Point;
     centre: Phaser.Geom.Point;
+    tooclose: Phaser.Geom.Point[] = [];
 
     constructor ()
     {
@@ -123,11 +128,13 @@ export default class MainScene extends Phaser.Scene
         this.points         = [];
         this.annotation     = [];
         this.track          = [];
+        this.inner          = [];
+        this.outer          = [];
 
         for(let i = 0; i < 40; i++)
         {
-            let x = this.rng.between(0, this.TRACK_WIDTH);
-            let y = this.rng.between(0, this.TRACK_HEIGHT);
+            let x = this.rng.between(0, this.MAX_WIDTH);
+            let y = this.rng.between(0, this.MAX_HEIGHT);
             this.points.push(new Phaser.Geom.Point(x, y));
         }
         this.track = makeHull(this.points);
@@ -186,10 +193,6 @@ export default class MainScene extends Phaser.Scene
         
         this.track = newTrack;
 
-        // Calculate center of gravity (we scale off of this point later)
-        this.center = centerOfMass(this.track);
-        this.centre = meanCenter(this.track);
-
         // Annotate corners with angle
         /*for(let current = 0; current < this.track.length; current++)
         {
@@ -213,11 +216,58 @@ export default class MainScene extends Phaser.Scene
         // Smooth out track
         let xSet = this.track.map(p => p.x);
         let ySet = this.track.map(p => p.y);
-        for(let f = 0; f <= 1; f+= 0.0001)
+        for(let f = 0; f <= 1; f+= 0.005)
         {
             let x = Phaser.Math.Interpolation.CatmullRom(xSet, f);
             let y = Phaser.Math.Interpolation.CatmullRom(ySet, f);
             this.interpolated.push(new Phaser.Geom.Point(x, y));
+        }
+
+        // Get inner and outer track line
+        this.inner = this.trackBounds(this.interpolated, true);
+        this.outer = this.trackBounds(this.interpolated, false);
+
+        // Remove interfering points
+        // Select range of neighbouring points of the track we will compare the distance 
+        // and check if they get to close to inner/outer bounds points
+        console.assert(this.interpolated.length == this.inner.length && this.inner.length == this.outer.length,
+            "There are always equal amounts of points in middle/inner/outer tracks");
+
+        for(let i = 0; i < this.interpolated.length; i++)
+        {
+            // We only check on a select few neighbours if they come too close to any inside/outside track points
+            let left_margin     = (i - this.MARGIN) < 0 ? (i - this.MARGIN) + this.interpolated.length : (i - this.MARGIN);
+            let right_margin    = (i + this.MARGIN) % this.interpolated.length;
+
+            for(let j = left_margin; j != right_margin; j = (j + 1) % this.interpolated.length)
+            {
+                let point = this.interpolated[j];
+                
+                // We selectively remove elements from this.inner and this.outer (depending on track characteristics)
+                // So initally where this.interpolated == this.inner == this.outer
+                // We cannot assume this anymore
+                for(let k = 0; k < this.inner.length; k++)
+                {
+                    let inner_point = this.inner[k];
+                    let inner_distance = Phaser.Math.Distance.Between(point.x, point.y, inner_point.x, inner_point.y);
+                    if(inner_distance + 2 < this.TRACK_WIDTH) // lenient margin before we classify point "too close"
+                    {
+                        this.inner.splice(k, 1); // Remove it
+                        this.tooclose.push(inner_point);
+                    }
+                }
+                 
+                for(let k = 0; k < this.outer.length; k++)
+                {
+                    let outer_point = this.outer[k];
+                    let outer_distance = Phaser.Math.Distance.Between(point.x, point.y, outer_point.x, outer_point.y);
+                    if(outer_distance + 2 < this.TRACK_WIDTH)
+                    {
+                        this.outer.splice(k, 1); // Remove it
+                        this.tooclose.push(outer_point);
+                    }
+                }
+            }    
         }
     }
 
@@ -315,61 +365,56 @@ export default class MainScene extends Phaser.Scene
     {
         this.graphics.clear();
         
-        // Track Bounds
+        // Rectangle of generated points
         this.graphics.lineStyle(5, 0x0000ff);
-        this.graphics.strokeRect(0, 0, this.TRACK_WIDTH, this.TRACK_HEIGHT);
+        this.graphics.strokeRect(0, 0, this.MAX_WIDTH, this.MAX_HEIGHT);
 
         // Generated Points
         this.graphics.fillStyle(0x00ff00);
         for(let p of this.points)
             this.graphics.fillCircle(p.x, p.y, 20);
         
-        // Track
+        // Track line
         this.graphics.lineStyle(2, 0x00ff00)
         this.graphics.strokePoints(this.track);
-
-        // Track bounds
-        this.graphics.lineStyle(2, 0xffffff);
-        let inner = scalePolygon(this.interpolated, this.center, 1.1);
-        let outer = scalePolygon(this.interpolated, this.center, 0.9);
-        //this.graphics.strokePoints(inner);
-        //this.graphics.strokePoints(outer);
-
-        let inner2 = this.trackBounds(this.interpolated, true);
-        let outer2 = this.trackBounds(this.interpolated, false);
-        this.graphics.lineStyle(2, 0xff0000);
-        this.graphics.strokePoints(inner2);
-        this.graphics.strokePoints(outer2);
 
         // Track Corners
         this.graphics.fillStyle(0x00ff00);
         for(let p of this.track)
             this.graphics.fillCircle(p.x, p.y, 20);
 
-
         // Added track corners
         this.graphics.fillStyle(0xff0000);
         for(let p of this.additional)
             this.graphics.fillCircle(p.x, p.y, 20);
 
-        // Interpolation
-        /*this.graphics.fillStyle(0xffffff);
+        // Interpolated track
+        this.graphics.fillStyle(0xffffff);
         for(let p of this.interpolated)
+            this.graphics.fillCircle(p.x, p.y, 20);
+            
+        // Inner/Outer track line
+        this.graphics.fillStyle(0xff0000);
+        for(let p of this.outer)
+            this.graphics.fillCircle(p.x, p.y, 20);
+
+        for(let p of this.inner)
+            this.graphics.fillCircle(p.x, p.y, 20);
+
+        //console.log(this.tooclose);
+
+        /*this.graphics.fillStyle(0x800080);
+        for(let p of this.tooclose)
             this.graphics.fillCircle(p.x, p.y, 20);*/
 
-        // Center of Mass
-        this.graphics.fillStyle(0x0066ff);
-        this.graphics.fillCircle(this.center.x, this.center.y, 20);
-
-        // Mean Mass
-        this.graphics.fillStyle(0xffa500);
-        this.graphics.fillCircle(this.centre.x, this.centre.y, 20);
-
-        //this.graphics.fillCircle(this.front_wheel.x, this.front_wheel.y, 5);
-        //this.graphics.fillCircle(this.rear_wheel.x, this.rear_wheel.y, 5);
-        //this.graphics.lineBetween(x, y, x + vec.x, y + vec.y); // Orientation
-
-        
+        // Hightlight Neighbour selection and visualize radius where we deem points as "too close" and consequently remove
+        //this.graphics.fillStyle(0x00ff00);
+        //this.graphics.fillCircle(this.interpolated[i].x, this.interpolated[i].y, 100);
+        //for(let k = left_margin; k != right_margin; k = (k + 1) % this.interpolated.length)
+        //{
+        //    this.graphics.fillCircle(this.interpolated[k].x, this.interpolated[k].y, 50);
+        //    this.graphics.strokeCircle(this.interpolated[k].x, this.interpolated[k].y, this.TRACK_WIDTH);
+        //}
 
         //this.text.setText([
             //'x: '       + round(this.player.x),
@@ -386,9 +431,7 @@ export default class MainScene extends Phaser.Scene
     }
 
     trackBounds(points: Phaser.Geom.Point[], inner: boolean): Phaser.Geom.Point[]
-    {
-        const TRACK_WIDTH = 400;
-        
+    {   
         let sign = inner ? 1 : -1;
         
         let result = [];
@@ -398,13 +441,14 @@ export default class MainScene extends Phaser.Scene
             let to		= points[i+1];
 
             let direction 	= new Phaser.Math.Vector2(from.x - to.x, from.y - to.y);
-            let right_angle = direction.rotate(sign * Math.PI/2).normalize().scale(TRACK_WIDTH);
+            let right_angle = direction.rotate(sign * Math.PI/2).normalize().scale(this.TRACK_WIDTH);
             
             let p = new Phaser.Geom.Point(to.x + right_angle.x, to.y + right_angle.y);
             //this.drawArrow(to, p);
 
             result.push(p);
         }
+        result.push(result[0]); // End with the start point again
 
         return result;
     }
