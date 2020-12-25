@@ -54,7 +54,7 @@ export default class MainScene extends Phaser.Scene
     rect_filled     = new Phaser.Geom.Rectangle(200, 10, 10, 120);
     rect_outline    = new Phaser.Geom.Rectangle(200, 10, 10, 120);
 
-    zoom = 0.08;
+    zoom = 0.28;
     annotation = [];
     style = { fontFamily: 'Tahoma ', fontSize: 64};
     texts: Phaser.GameObjects.Text[] = [];
@@ -101,7 +101,7 @@ export default class MainScene extends Phaser.Scene
 
         this.graphics = this.add.graphics({ lineStyle: { width: 2, color: 0xff0000 }, fillStyle: { color: 0x00ff00 } },);
 
-        this.cameras.main.startFollow(this.dot, false);
+        this.cameras.main.startFollow(this.player, false);
         
         // Generate track
         this.generateTrack();
@@ -428,6 +428,10 @@ export default class MainScene extends Phaser.Scene
             //'time: '    + round(time),
             //'delta: '   + round(delta)
         //]);
+
+        (window as any).data.push({x: round(time), y: this.velocity});
+        (window as any).myChart.update();
+        //console.log({x: round(time), y: this.velocity});
     }
 
     trackBounds(points: Phaser.Geom.Point[], inner: boolean): Phaser.Geom.Point[]
@@ -488,6 +492,7 @@ export default class MainScene extends Phaser.Scene
 const config = {
     type: Phaser.AUTO,
     backgroundColor: '#000000',
+    parent: 'game',
     width: 1080,
     height: 720,
     scale: {
