@@ -493,12 +493,12 @@ const config = {
     type: Phaser.AUTO,
     backgroundColor: '#000000',
     parent: 'game',
-    width: 1080,
-    height: 720,
-    scale: {
-        mode: Phaser.Scale.FIT,
-        autoCenter: Phaser.Scale.CENTER_BOTH
-    },
+    width: 1080/2,
+    height: 720/2,
+    //scale: {
+    //    mode: Phaser.Scale.FIT,
+    //    autoCenter: Phaser.Scale.CENTER_BOTH
+    //},
     scene: [MainScene],
     seed: ["Wow"],
     physics: {
