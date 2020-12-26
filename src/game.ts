@@ -12,7 +12,8 @@ let equal = function(p1, p2) {
 
 export default class MainScene extends Phaser.Scene
 {
-    private readonly ENGINEPOWER    = 100;
+    private readonly POWER          = 5;
+    private readonly BRAKEPOWER     = 50;
     private readonly FRICTION       = -0.02;
     private readonly DRAG           = -0.00016;
     private readonly MAX_WIDTH      = 8000;
@@ -114,6 +115,7 @@ export default class MainScene extends Phaser.Scene
         this.cameras.main.setZoom(this.zoom);
 
         // Controls
+        this.spectate();
         this.steer();
         this.accelerate();
         this.applyPhysics(time, delta);
@@ -273,7 +275,7 @@ export default class MainScene extends Phaser.Scene
         }
     }
 
-    steer()
+    spectate()
     {
         // Camera
         if(this.w_key.isDown)
@@ -295,27 +297,41 @@ export default class MainScene extends Phaser.Scene
         {
             this.dot.x += 50;
         }
+    }
 
+    steer()
+    {
         // Car
-        let range = 20;
-        if (this.velocity > 300)
+        let rates    = [5,  5,  4,  4, 4, 3, 2, 2, 1, 1]; // How fast we can steer to one direction
+        let ranges   = [20, 20, 10, 5, 5, 3, 2, 2, 1, 1]; // How far we can steer in one direction
+
+        let r       = Math.min(this.velocity/2400, 1.0); // We say 2400 is the max velocity most reach
+        let rate    = Phaser.Math.Interpolation.Linear(rates, r);
+        let range   = Phaser.Math.Interpolation.Linear(ranges, r);
+
+        console.log(round(this.velocity) + ": " + round(r) + " | " + round(rate) + " | " + round(range));
+
+        /*if (this.velocity > 600)
         {
             range = 10;
-        }
+            rate = 2;
+        }*/
 
         if (this.cursors.left.isDown)
         {
+            if(this.steer_angle > 0) // When steering right to left make transition snappier
+                this.steer_angle = 0;
+
             if(this.steer_angle > -range)
-            {
-                this.steer_angle -= 5;
-            }
+                this.steer_angle -= rate;
         }
         else if (this.cursors.right.isDown)
         {
+            if(this.steer_angle < 0) // When steering left to right make transition snappier
+                this.steer_angle = 0;
+
             if(this.steer_angle < range)
-            {
-                this.steer_angle += 5;
-            }
+                this.steer_angle += rate;
         }
         else
         {
@@ -327,23 +343,22 @@ export default class MainScene extends Phaser.Scene
     {
         if (this.cursors.up.isDown) // Accelerating
         {
-            this.acceleration = Math.min(this.acceleration + 1, this.ENGINEPOWER)
+            this.acceleration = this.acceleration + this.POWER;
         }
         else if (this.cursors.down.isDown) // Braking
         {
-            this.acceleration = Math.max(this.acceleration - 5, 0);
+            this.acceleration = Math.max(this.acceleration - this.BRAKEPOWER, 0);
         }
         else // Rolling
         {
-            this.acceleration = Math.max(this.acceleration - 1, 0);
+            this.acceleration = Math.max(this.acceleration - 8, 0);
         }
     }
 
     applyPhysics(time, delta)
     {
         let friction_force  = round(this.velocity * this.FRICTION);
-        let drag_force      = round((this.velocity*0.5) * (this.velocity*0.5) * this.DRAG);
-        let drag_force2      = round((this.velocity) * (this.velocity) * this.DRAG);
+        let drag_force      = round(this.velocity * this.velocity * this.DRAG);
 
         this.velocity += this.acceleration;
         this.velocity += friction_force + drag_force;
@@ -364,9 +379,9 @@ export default class MainScene extends Phaser.Scene
         this.player.setPosition(carLocation.x, carLocation.y);
 
         (window as any).data1.push({x: round(time)/1000, y: this.velocity});
-        (window as any).data2.push({x: round(time)/1000, y: this.acceleration});
-        (window as any).data3.push({x: round(time)/1000, y: -drag_force});
-        (window as any).data4.push({x: round(time)/1000, y: -drag_force2});
+        //(window as any).data2.push({x: round(time)/1000, y: this.acceleration});
+        //(window as any).data3.push({x: round(time)/1000, y: -drag_force});
+        //(window as any).data4.push({x: round(time)/1000, y: -friction_force});
         (window as any).myChart.update();
     }
 
@@ -437,7 +452,6 @@ export default class MainScene extends Phaser.Scene
             //'time: '    + round(time),
             //'delta: '   + round(delta)
         //]);
-        //console.log({x: round(time), y: this.velocity});
     }
 
     trackBounds(points: Phaser.Geom.Point[], inner: boolean): Phaser.Geom.Point[]
@@ -499,8 +513,8 @@ const config = {
     type: Phaser.AUTO,
     backgroundColor: '#000000',
     parent: 'game',
-    width: 1080/2,
-    height: 720/2,
+    width: 1080,
+    height: 720,
     //scale: {
     //    mode: Phaser.Scale.FIT,
     //    autoCenter: Phaser.Scale.CENTER_BOTH

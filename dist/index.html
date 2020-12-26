@@ -8,20 +8,18 @@
 </head>
 
 <body style="margin: 0px; display: flex;">
-    <div id="game" style="width:50%"></div>
+    <div id="game" style="width:70%"></div>
     
-    <div style="width:50%;margin-left: 50px">
-        <canvas id="myChart" width="800" height="360"></canvas>
+    <div style="width:30%;margin-left: 50px">
+        <canvas id="myChart" width="400" height="360"></canvas>
     </div>
 </body>
 
 
 
-<script>
+<<script>
 window.data1 = [];
-window.data2 = [];
-window.data3 = [];
-window.data4 = [];
+
 
 var ctx = document.getElementById('myChart').getContext('2d');
 window.myChart = new Chart(ctx, {
@@ -32,7 +30,7 @@ window.myChart = new Chart(ctx, {
             backgroundColor: "#ff0000",
             data: window.data1
         },
-        {
+        /*{
             label: 'Acceleration',
             backgroundColor: "#ffff00",
             data: window.data2
@@ -46,7 +44,7 @@ window.myChart = new Chart(ctx, {
             label: 'Friction Force',
             backgroundColor: "#0000ff",
             data: window.data4
-        }]
+        }*/]
     },
     options: {
         scales: {
