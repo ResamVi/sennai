@@ -18,17 +18,10 @@
 
 
 <script>
-window.data = [{
-                x: -10,
-                y: 0
-            }, {
-                x: 0,
-                y: 10
-            }, {
-                x: 10,
-                y: 5
-            }];
-console.log(window.data);
+window.data1 = [];
+window.data2 = [];
+window.data3 = [];
+window.data4 = [];
 
 var ctx = document.getElementById('myChart').getContext('2d');
 window.myChart = new Chart(ctx, {
@@ -36,8 +29,23 @@ window.myChart = new Chart(ctx, {
     data: {
         datasets: [{
             label: 'Velocity',
-            backgroundColor: "rgba(1.0, 0.0, 0.0, 1.0')",
-            data: window.data
+            backgroundColor: "#ff0000",
+            data: window.data1
+        },
+        {
+            label: 'Acceleration',
+            backgroundColor: "#ffff00",
+            data: window.data2
+        },
+        {
+            label: 'Drag force',
+            backgroundColor: "#00ff00",
+            data: window.data3
+        },
+        {
+            label: 'Friction Force',
+            backgroundColor: "#0000ff",
+            data: window.data4
         }]
     },
     options: {

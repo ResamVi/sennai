@@ -12,9 +12,9 @@ let equal = function(p1, p2) {
 
 export default class MainScene extends Phaser.Scene
 {
-    private readonly ENGINEPOWER    = 150;
+    private readonly ENGINEPOWER    = 100;
     private readonly FRICTION       = -0.02;
-    private readonly DRAG           = -0.00034;
+    private readonly DRAG           = -0.00016;
     private readonly MAX_WIDTH      = 8000;
     private readonly MAX_HEIGHT     = 6000;
     private readonly WHEEL_BASE     = 35;
@@ -61,6 +61,8 @@ export default class MainScene extends Phaser.Scene
     center: Phaser.Geom.Point;
     centre: Phaser.Geom.Point;
     tooclose: Phaser.Geom.Point[] = [];
+    tone: Phaser.Sound.BaseSound;
+    music: Phaser.Sound.BaseSound;
 
     constructor ()
     {
@@ -114,7 +116,7 @@ export default class MainScene extends Phaser.Scene
         // Controls
         this.steer();
         this.accelerate();
-        this.applyPhysics(delta);
+        this.applyPhysics(time, delta);
         this.debug(time, delta);
 
         //this.cameras.main.setAngle(-this.player.angle + 180);
@@ -337,10 +339,11 @@ export default class MainScene extends Phaser.Scene
         }
     }
 
-    applyPhysics(delta)
+    applyPhysics(time, delta)
     {
         let friction_force  = round(this.velocity * this.FRICTION);
-        let drag_force      = round(this.velocity * this.velocity * this.DRAG);
+        let drag_force      = round((this.velocity*0.5) * (this.velocity*0.5) * this.DRAG);
+        let drag_force2      = round((this.velocity) * (this.velocity) * this.DRAG);
 
         this.velocity += this.acceleration;
         this.velocity += friction_force + drag_force;
@@ -359,6 +362,12 @@ export default class MainScene extends Phaser.Scene
         this.player.rotation = carHeading.angle();
 
         this.player.setPosition(carLocation.x, carLocation.y);
+
+        (window as any).data1.push({x: round(time)/1000, y: this.velocity});
+        (window as any).data2.push({x: round(time)/1000, y: this.acceleration});
+        (window as any).data3.push({x: round(time)/1000, y: -drag_force});
+        (window as any).data4.push({x: round(time)/1000, y: -drag_force2});
+        (window as any).myChart.update();
     }
 
     debug(time, delta)
@@ -428,9 +437,6 @@ export default class MainScene extends Phaser.Scene
             //'time: '    + round(time),
             //'delta: '   + round(delta)
         //]);
-
-        (window as any).data.push({x: round(time), y: this.velocity});
-        (window as any).myChart.update();
         //console.log({x: round(time), y: this.velocity});
     }
 
