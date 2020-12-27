@@ -2,8 +2,8 @@ import { makeHull } from './algorithms';
 
 const MAX_WIDTH      = 8000;
 const MAX_HEIGHT     = 6000;
-const TRACK_WIDTH    = 400;
 const MARGIN         = 10;
+export const TRACK_WIDTH    = 400;
 
 let equal = function(p1, p2) {
     return p1.x == p2.x && p1.y == p2.y;

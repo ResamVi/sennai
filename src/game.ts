@@ -1,5 +1,5 @@
 import 'phaser';
-import { generateTrack } from './track';
+import { generateTrack, TRACK_WIDTH } from './track';
 
 // TODO: Move to util?
 let round = function(numb) {
@@ -13,6 +13,9 @@ export default class MainScene extends Phaser.Scene
     private readonly FRICTION       = -0.02;
     private readonly DRAG           = -0.00016;
     private readonly WHEEL_BASE     = 35;
+
+    private readonly RATES    = [4,  4,  4,  4, 4, 3, 2, 2, 1, 1]; // How fast we can steer to one direction
+    private readonly RANGES   = [10, 10, 10, 5, 5, 3, 2, 2, 1, 1]; // How far we can steer in one direction
 
     private player:     Phaser.Physics.Matter.Image; // TODO: Bundle all objects into worlds module
     private dot:        Phaser.Physics.Matter.Image; // TODO: Bundle all objects into worlds module
@@ -31,30 +34,17 @@ export default class MainScene extends Phaser.Scene
     private rear_wheel: Phaser.Math.Vector2;
     private steer_angle     = 0;
 
-    private points:         Phaser.Geom.Point[] = [];
     private track:          Phaser.Geom.Point[] = [];
-    private additional:     Phaser.Geom.Point[] = []; // TODO: Remove: Debug Purpose
-    private interpolated:   Phaser.Geom.Point[] = [];
     private inner:          Phaser.Geom.Point[] = [];
     private outer:          Phaser.Geom.Point[] = [];
 
+    private circle: Phaser.Geom.Circle;
+    private progress: Set<Phaser.Geom.Point> = new Set();
+
     // Debug
     graphics:       Phaser.GameObjects.Graphics;
-    
-    circle          = new Phaser.Geom.Circle(0, 0, 0);
-    rect_filled     = new Phaser.Geom.Rectangle(200, 10, 10, 120);
-    rect_outline    = new Phaser.Geom.Rectangle(200, 10, 10, 120);
-
     zoom = 0.18;
-    annotation = [];
-    style = { fontFamily: 'Tahoma ', fontSize: 64};
-    texts: Phaser.GameObjects.Text[] = [];
-    center: Phaser.Geom.Point;
-    centre: Phaser.Geom.Point;
-    tooclose: Phaser.Geom.Point[] = [];
-    tone: Phaser.Sound.BaseSound;
-    music: Phaser.Sound.BaseSound;
-
+    
     constructor ()
     {
         super('SENNAI');
@@ -70,13 +60,13 @@ export default class MainScene extends Phaser.Scene
     }
 
     create ()
-    {
+    {   
         this.input.on('wheel', (a, b, c, deltaY) => {
             this.zoom -= 0.0001 * deltaY;
         });
 
         this.input.keyboard.on('keydown-R', () => {
-            this.texts.forEach(t => t.setAlpha(0));
+            //this.texts.forEach(t => t.setAlpha(0));
             [this.track, this.inner, this.outer] = generateTrack(Phaser.Math.RND);
         });
 
@@ -86,17 +76,23 @@ export default class MainScene extends Phaser.Scene
         this.s_key = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S);
         this.a_key = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A);        
         
-        this.player = this.matter.add.image(100, 100, 'car');
         this.dot    = this.matter.add.image(200, 200, 'dot');
-
-        this.text = this.add.text(10, 10, '', { font: '16px Courier', fill: '#00ff00' });
+        
+        this.text = this.add.text(-1080*2, -720*2, '', { font: '256px Courier', fill: '#00ff00' });
         this.text.setScrollFactor(0);
-
+        
         this.graphics = this.add.graphics({ lineStyle: { width: 2, color: 0xff0000 }, fillStyle: { color: 0x00ff00 } },);
-
-        this.cameras.main.startFollow(this.player, false);
+        
         
         [this.track, this.inner, this.outer] = generateTrack(Phaser.Math.RND);
+        
+        // Put Player on track
+        this.player = this.matter.add.image(this.track[0].x, this.track[0].y, 'car');
+        this.player.setRotation(this.vector(this.track[0], this.track[1]).angle() + Math.PI/2);
+        
+        this.circle = new Phaser.Geom.Circle(this.player.x, this.player.y, TRACK_WIDTH + 50);
+        
+        this.cameras.main.startFollow(this.player, false);
     }
     
     update(time, delta)
@@ -107,6 +103,7 @@ export default class MainScene extends Phaser.Scene
         this.spectate();
         this.steer();
         this.accelerate();
+        this.trackProgress();
         this.applyPhysics(time, delta);
         this.drawTrack()
         
@@ -140,21 +137,9 @@ export default class MainScene extends Phaser.Scene
 
     steer()
     {
-        // Car
-        let rates    = [4,  4,  4,  4, 4, 3, 2, 2, 1, 1]; // How fast we can steer to one direction
-        let ranges   = [10, 10, 10, 5, 5, 3, 2, 2, 1, 1]; // How far we can steer in one direction
-
         let r       = Math.min(this.velocity/2400, 1.0); // We say 2400 is the max velocity most reach
-        let rate    = Phaser.Math.Interpolation.Linear(rates, r);
-        let range   = Phaser.Math.Interpolation.Linear(ranges, r);
-
-        console.log(round(this.velocity) + ": " + round(r) + " | " + round(rate) + " | " + round(range));
-
-        /*if (this.velocity > 600)
-        {
-            range = 10;
-            rate = 2;
-        }*/
+        let rate    = Phaser.Math.Interpolation.Linear(this.RATES, r);
+        let range   = Phaser.Math.Interpolation.Linear(this.RANGES, r);
 
         if (this.cursors.left.isDown)
         {
@@ -205,6 +190,17 @@ export default class MainScene extends Phaser.Scene
         this.velocity += this.acceleration;
         this.velocity += friction_force + drag_force;
         
+        // We reduce velocity when we are too far out of track
+        let points = [];
+        for(let p of this.track)
+        {
+            if(this.circle.contains(p.x, p.y))
+                points.push(p);
+        }
+
+        if(points.length == 0)
+            this.acceleration *= 0.5;
+
         let position = new Phaser.Math.Vector2(this.player.x, this.player.y);
 
         this.front_wheel = position.clone().add(       this.direction().scale(this.WHEEL_BASE / 2));
@@ -217,7 +213,6 @@ export default class MainScene extends Phaser.Scene
         let carLocation = this.front_wheel.clone().add(     this.rear_wheel).scale(0.5);
 
         this.player.rotation = carHeading.angle();
-
         this.player.setPosition(carLocation.x, carLocation.y);
 
         (window as any).data1.push({x: round(time)/1000, y: this.velocity});
@@ -225,6 +220,19 @@ export default class MainScene extends Phaser.Scene
         //(window as any).data3.push({x: round(time)/1000, y: -drag_force});
         //(window as any).data4.push({x: round(time)/1000, y: -friction_force});
         (window as any).myChart.update();
+    }
+
+    trackProgress()
+    {
+        console.log(this.progress);
+        console.log(this.progress.size);
+        for(let p of this.track)
+        {
+            if(this.circle.contains(p.x, p.y))
+            {
+                this.progress.add(p);
+            }
+        }
     }
 
     drawTrack()
@@ -252,7 +260,20 @@ export default class MainScene extends Phaser.Scene
         this.graphics.fillStyle(0x00ff00);
         for(let p of this.track)
             this.graphics.fillCircle(p.x, p.y, 20);
-            
+          
+        this.graphics.strokeCircle(this.player.x, this.player.y, TRACK_WIDTH + 50);
+
+        this.graphics.fillStyle(0x0000ff);
+        this.circle.setPosition(this.player.x, this.player.y);
+        for(let p of this.track)
+        {
+            if(this.circle.contains(p.x, p.y))
+            {
+                this.graphics.fillCircle(p.x, p.y, 20);
+            }
+
+        }
+
         // Inner/Outer track line
         //this.graphics.fillStyle(0xff0000);
         //for(let p of this.outer)
@@ -269,7 +290,7 @@ export default class MainScene extends Phaser.Scene
         //    this.graphics.strokeCircle(this.interpolated[k].x, this.interpolated[k].y, this.TRACK_WIDTH);
         //}
 
-        //this.text.setText([
+        this.text.setText([
             //'x: '       + round(this.player.x),
             //'y: '       + round(this.player.y),
             //'v: '       + round(vel.x) + ', ' + round(vel.y),
@@ -278,9 +299,10 @@ export default class MainScene extends Phaser.Scene
             //'velocity: '+ round(this.velocity),
             //'accel: '   + round(this.acceleration),
             //'fps: '     + round(this.game.loop.actualFps),
-            //'time: '    + round(time),
+            'time: '        + round(time) / 1000,
+            'progress: '    + round(this.progress.size/this.track.length)*100 + '%',
             //'delta: '   + round(delta)
-        //]);
+        ]);
     }
 
     /**
@@ -312,6 +334,14 @@ export default class MainScene extends Phaser.Scene
         let [targetX, targetY] = [this.player.getBottomCenter().x, this.player.getBottomCenter().y]
 
         return new Phaser.Math.Vector2(targetX - originX, targetY - originY).normalize();
+    }
+
+    /**
+     * Returns the vector starting at `from` and pointing to `to`
+     */
+    vector(from: Phaser.Geom.Point, to: Phaser.Geom.Point)
+    {
+        return new Phaser.Math.Vector2(from.x - to.x, from.y - to.y);
     }
 }
 
