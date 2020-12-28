@@ -1,7 +1,10 @@
+/// <reference path="./ai.ts">
+
 import 'phaser';
 import { Car, Control } from './car';
 import { generateTrack, TRACK_WIDTH } from './track';
 import { round } from './util';
+import { generate_population, POPULATION_SIZE } from './ai';
 
 export default class MainScene extends Phaser.Scene
 {
@@ -9,24 +12,27 @@ export default class MainScene extends Phaser.Scene
     private cursors:    Phaser.Types.Input.Keyboard.CursorKeys; // TODO: Put into dedicated controls module
     private text:       Phaser.GameObjects.Text;
     
-    private cars: Car;
     private controls: Control;
-
+    
     private w_key: Phaser.Input.Keyboard.Key;
     private s_key: Phaser.Input.Keyboard.Key;
     private a_key: Phaser.Input.Keyboard.Key;
     private d_key: Phaser.Input.Keyboard.Key;
-
+    
+    private cars:           Car[]               = [];
     private track:          Phaser.Geom.Point[] = [];
     private inner:          Phaser.Geom.Point[] = [];
     private outer:          Phaser.Geom.Point[] = [];
 
-    private progress: Set<Phaser.Geom.Point> = new Set();
-
     // Debug
-    graphics:       Phaser.GameObjects.Graphics;
     zoom = 0.18;
+    graphics:       Phaser.GameObjects.Graphics;
     circle:         Phaser.Geom.Circle;
+    recording:      Array<any> = [];
+    left:   number  = 0;
+    right:  number  = 0;
+    up:     number  = 0;
+    down:   number  = 0;
     
     constructor ()
     {
@@ -49,8 +55,11 @@ export default class MainScene extends Phaser.Scene
         });
 
         this.input.keyboard.on('keydown-R', () => {
-            //this.texts.forEach(t => t.setAlpha(0));
             [this.track, this.inner, this.outer] = generateTrack(Phaser.Math.RND);
+        });
+
+        this.input.keyboard.on('keydown-M', () => {
+            console.log(JSON.stringify(this.recording));
         });
 
         this.cursors = this.input.keyboard.createCursorKeys();
@@ -68,11 +77,14 @@ export default class MainScene extends Phaser.Scene
         
         [this.track, this.inner, this.outer] = generateTrack(Phaser.Math.RND);
         
-        this.cars       = new Car(this, this.track);
-        this.controls   = new Control();
-        this.circle     = new Phaser.Geom.Circle(this.cars.object.x, this.cars.object.y, TRACK_WIDTH + 50);
+        let chromosomes = generate_population(Phaser.Math.RND)
+        this.cars = [];
+        for(let i = 0; i < POPULATION_SIZE; i++)
+            this.cars[i]       = new Car(this, this.track, i, chromosomes[i]);
+        
+            this.controls   = new Control();
 
-        this.cameras.main.startFollow(this.cars.object, false);
+        this.cameras.main.startFollow(this.dot, false);
     }
     
     update(time, delta)
@@ -80,42 +92,34 @@ export default class MainScene extends Phaser.Scene
         this.cameras.main.setZoom(this.zoom);
         this.graphics.clear();
 
-        // Controls
+        // Player Controls
         this.spectate();
-        this.steer();
-        this.accelerate();
-        this.trackProgress();
+        //this.steer();
+        //this.record(time);
+        //this.accelerate();
         
-        this.cars.update(time, delta, this.controls);
+        for(let car of this.cars)
+            car.update(time, delta, this.controls, this.graphics);
         
-        this.drawTrack()
+        this.drawTrack();
         
         this.debug(time, delta);
-        //this.cameras.main.setAngle(-this.player.angle + 180);
     }
 
     spectate()
     {
         // Camera
         if(this.w_key.isDown)
-        {
             this.dot.y -= 50;
-        }
 
         if(this.s_key.isDown)
-        {
             this.dot.y += 50;
-        }
 
         if(this.a_key.isDown)
-        {
             this.dot.x -= 50;
-        }
 
         if(this.d_key.isDown)
-        {
             this.dot.x += 50;
-        }
     }
 
     steer()
@@ -137,6 +141,48 @@ export default class MainScene extends Phaser.Scene
         }
     }
 
+    record(time: number)
+    {
+        // Keep track of duration
+        if(this.cursors.left.isDown)
+            this.left = this.cursors.left.getDuration();
+        if(this.cursors.right.isDown)
+            this.right = this.cursors.right.getDuration();
+        if(this.cursors.up.isDown)
+            this.up = this.cursors.up.getDuration();
+        if(this.cursors.down.isDown)
+            this.down = this.cursors.down.getDuration();
+
+        // On key release, when the key-press-duration was measured: store
+        if (this.cursors.left.isUp && this.left > 0)
+        {
+            let item = [time - this.left, "left", this.left];
+            this.recording.push(item);
+            this.left = 0;
+        }
+        
+        if (this.cursors.right.isUp && this.right > 0)
+        {
+            let item = [time - this.left, "right", this.right];
+            this.recording.push(item);
+            this.right = 0;
+        }
+        
+        if (this.cursors.up.isUp && this.up > 0)
+        {
+            let item = [time - this.up, "up", this.up];
+            this.recording.push(item);
+            this.up = 0;
+        }
+
+        if (this.cursors.down.isUp && this.down > 0)
+        {
+            let item = [time - this.down, "down", this.down];
+            this.recording.push(item);
+            this.down = 0;
+        }
+    }
+
     accelerate()
     {
         if (this.cursors.up.isDown) // Accelerating
@@ -153,19 +199,6 @@ export default class MainScene extends Phaser.Scene
         {
             this.controls.down = false;
             this.controls.up = false;
-        }
-    }
-
-    trackProgress()
-    {
-        this.circle.setPosition(this.cars.object.x, this.cars.object.y);
-        
-        for(let p of this.track)
-        {
-            if(this.circle.contains(p.x, p.y))
-            {
-                this.progress.add(p);
-            }
         }
     }
 
@@ -192,48 +225,9 @@ export default class MainScene extends Phaser.Scene
         this.graphics.fillStyle(0x00ff00);
         for(let p of this.track)
             this.graphics.fillCircle(p.x, p.y, 20);
-          
-        this.graphics.strokeCircle(this.cars.object.x, this.cars.object.y, TRACK_WIDTH + 50);
-
-        this.graphics.fillStyle(0x0000ff);
-        this.circle.setPosition(this.cars.object.x, this.cars.object.y);
-        for(let p of this.track)
-        {
-            if(this.circle.contains(p.x, p.y))
-            {
-                this.graphics.fillCircle(p.x, p.y, 20);
-            }
-
-        }
-
-        // Inner/Outer track line
-        //this.graphics.fillStyle(0xff0000);
-        //for(let p of this.outer)
-        //    this.graphics.fillCircle(p.x, p.y, 20);
-        //for(let p of this.inner)
-        //    this.graphics.fillCircle(p.x, p.y, 20);
-
-        // Hightlight Neighbour selection and visualize radius where we deem points as "too close" and consequently remove
-        //this.graphics.fillStyle(0x00ff00);
-        //this.graphics.fillCircle(this.interpolated[i].x, this.interpolated[i].y, 100);
-        //for(let k = left_margin; k != right_margin; k = (k + 1) % this.interpolated.length)
-        //{
-        //    this.graphics.fillCircle(this.interpolated[k].x, this.interpolated[k].y, 50);
-        //    this.graphics.strokeCircle(this.interpolated[k].x, this.interpolated[k].y, this.TRACK_WIDTH);
-        //}
 
         this.text.setText([
-            //'x: '       + round(this.player.x),
-            //'y: '       + round(this.player.y),
-            //'v: '       + round(vel.x) + ', ' + round(vel.y),
-            //'a: '       + round(accel.x) + ', ' + round(accel.x),
-            //'angle: '   + this.steer_angle,
-            //'velocity: '+ round(this.velocity),
-            //'accel: '   + round(this.acceleration),
-            //'fps: '     + round(this.game.loop.actualFps),
-            'time: '        + round(time) / 1000,
-            'progress: '    + round(this.progress.size/this.track.length)*100 + '%',
-            //'delta: '   + round(delta)
+            'time: '        + Math.floor(time),
         ]);
     }
 
@@ -273,6 +267,7 @@ const config = {
     physics: {
         default: 'matter',
         matter: { 
+            enabled: false,
             debug: true,
             gravity: { x: 0, y: 0 }
         }

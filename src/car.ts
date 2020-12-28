@@ -2,12 +2,24 @@ import { round, vector } from './util';
 
 import { TRACK_WIDTH } from './track';
 
+/**
+ * Snapshot of which buttons to press
+ * for one update()-cycle or frame
+ */
 export class Control
 {
     left: boolean;
     right: boolean;
     up: boolean;
     down: boolean;
+
+    constructor()
+    {
+        this.left = false;
+        this.right = false;
+        this.up = false;
+        this.down = false;
+    }
 }
 
 export class Car
@@ -36,27 +48,61 @@ export class Car
     private acceleration: number    = 0;
     private steer_angle: number     = 0;
 
+    private chromosome: Array<any>;
+    private index:      number;
 
-    constructor(scene: Phaser.Scene, track: Phaser.Geom.Point[])
+    private progress: Set<Phaser.Geom.Point> = new Set();
+
+    // Debug
+    private text:       Phaser.GameObjects.Text;
+
+
+    constructor(scene: Phaser.Scene, track: Phaser.Geom.Point[], index: number,  chromosome: Array<any>)
     {
+        this.chromosome = chromosome;
+        this.track = track;
+        this.index = index;
+        
         // Put Player on track and point him in right direction
         this.car = scene.matter.add.image(track[0].x, track[0].y, 'car');
         this.car.setRotation(vector(track[0], track[1]).angle() + Math.PI/2);
 
+        // Circle determines when we go out of track
         this.circle = new Phaser.Geom.Circle(this.car.x, this.car.y, TRACK_WIDTH + 50);
 
-        this.track = track;
+        // Display car info
+        this.text = scene.add.text(this.car.x, this.car.y, '', { font: '128px Courier', fill: '#00ff00' });
+        this.text.setScrollFactor(1);
     }
 
-    public update(time, delta, control: Control)
+    public update(time: number, delta: number, user_control: Control, graphics: Phaser.GameObjects.Graphics)
     {
-        this.inputs(control);
+        let ai_control =  this.act(time);
+        this.inputs(ai_control);
+        //this.inputs(user_control);
         this.physics(time, delta);
+        this.trackProgress();
+        this.info(graphics);
     }
 
     get object(): Phaser.Physics.Matter.Image
     {
         return this.car;
+    }
+
+    private act(time: number): Control
+    {
+        let control = new Control();
+        
+        for(let gene of this.chromosome)
+        {
+            let [start, action, duration] = gene;
+            
+            if(start < time && time < start+duration)
+                control[action] = true;
+        }
+
+        return control;
     }
 
     private inputs(control: Control)
@@ -138,11 +184,33 @@ export class Car
         this.car.rotation = carHeading.angle();
         this.car.setPosition(carLocation.x, carLocation.y);
 
-        (window as any).data1.push({x: round(time)/1000, y: this.velocity});
+        //(window as any).data1.push({x: round(time)/1000, y: this.velocity});
         //(window as any).data2.push({x: round(time)/1000, y: this.acceleration});
         //(window as any).data3.push({x: round(time)/1000, y: -drag_force});
         //(window as any).data4.push({x: round(time)/1000, y: -friction_force});
-        (window as any).myChart.update();
+        //(window as any).myChart.update();
+    }
+
+    
+    trackProgress()
+    {
+        this.circle.setPosition(this.car.x, this.car.y);
+        
+        for(let p of this.track)
+        {
+            if(this.circle.contains(p.x, p.y))
+                this.progress.add(p);
+        }
+    }
+
+    private info(graphics: Phaser.GameObjects.Graphics)
+    {
+        this.text.setPosition(this.car.x, this.car.y);
+        this.text.setText(
+            this.index.toString() + "|" + round(this.progress.size/this.track.length)*100 + '%'    
+        );
+
+        // this.graphics.strokeCircle(this.cars.object.x, this.cars.object.y, TRACK_WIDTH + 50);
     }
 
     /**
