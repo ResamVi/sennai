@@ -1,7 +1,7 @@
 import 'phaser';
 import { Car, Control } from './car';
 import { generateTrack } from './track';
-import { generate_population, parent_selection, POPULATION_SIZE } from './ai';
+import { generate_population, parent_selection, crossover, POPULATION_SIZE, ELIMINIATION_AMOUNT  } from './ai';
 
 export default class MainScene extends Phaser.Scene
 {
@@ -22,6 +22,7 @@ export default class MainScene extends Phaser.Scene
     private outer:          Phaser.Geom.Point[] = [];
 
     private generation_count: number = 0;
+    private round_start: number       = 0;
 
     // Debug
     zoom = 0.18;
@@ -102,15 +103,15 @@ export default class MainScene extends Phaser.Scene
         //this.accelerate();
 
         for(let car of this.cars)
-            car.update(time, delta, this.controls, this.graphics);
+            car.update(this.roundTime(time), delta, this.controls, this.graphics);
 
         let everyoneStopped = this.cars.reduce((prev, curr) => !prev ? false : curr.stopped, true);
         if(everyoneStopped)
-            this.next_generation();
+            this.next_generation(time);
 
         this.drawTrack();
 
-        this.debug(time, delta);
+        this.debug(time);
     }
 
     spectate()
@@ -221,18 +222,34 @@ export default class MainScene extends Phaser.Scene
         this.graphics.strokePoints(this.outer);
     }
 
-    next_generation()
-    {
-        let count = new Array(this.cars.length).fill(0);
-        while(true)
+    next_generation(time)
+    {   
+        let best_perfomers = this.cars.sort((a, b) => b.fitness - a.fitness);
+        let worst_performers = best_perfomers.slice(best_perfomers.length - ELIMINIATION_AMOUNT );
+
+        for(let i = 0; i < ELIMINIATION_AMOUNT; i++)
         {
-            let c = parent_selection(this.cars);  
-            //console.log(`${c.index}, ${c.fitness}`);
-            count[c.index]++;
+            let mom = parent_selection(this.cars);
+            let dad = parent_selection(this.cars);
+            
+            for(let car of worst_performers)
+            {
+                let kid_dna = crossover(mom.dna, dad.dna);
+                car.replaceDNA(mom, dad, kid_dna);
+            }
         }
+
+        for(let car of this.cars)
+        {
+            car.restart();
+
+        }
+
+        this.generation_count++;
+        this.round_start = time;
     }
 
-    debug(time, delta)
+    debug(time)
     {
         
         // Rectangle of generated points
@@ -245,7 +262,7 @@ export default class MainScene extends Phaser.Scene
             this.graphics.fillCircle(p.x, p.y, 20);
 
         let best = [];
-        let info = ['time: ' + Math.floor(time), 'Generation: ' + this.generation_count];
+        let info = ['time: ' + Math.floor(time), 'round_time: ' + this.roundTime(time), 'Generation: ' + this.generation_count];
         best = this.cars.sort((a, b) => b.fitness - a.fitness);
         
         for(let i = 0; i < best.length; i++)
@@ -272,6 +289,11 @@ export default class MainScene extends Phaser.Scene
         let arrowhead2  = direction.clone().rotate(-Math.PI/2 + Math.PI/4).normalize().scale(LINE_WIDTH);
         this.graphics.lineBetween(to.x, to.y, to.x + arrowhead1.x, to.y + arrowhead1.y);
         this.graphics.lineBetween(to.x, to.y, to.x + arrowhead2.x, to.y + arrowhead2.y);
+    }
+
+    roundTime(time: number): number
+    {
+        return Math.floor(time - this.round_start);
     }
 
     pad(str): string

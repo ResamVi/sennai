@@ -1,6 +1,7 @@
 import { Car} from './car';
 
 export const POPULATION_SIZE   = 20;
+export const ELIMINIATION_AMOUNT = 5;
 
 const INITIAL_INPUTS    = 100;
 
@@ -48,7 +49,7 @@ function generate_chromosome(rng: Phaser.Math.RandomDataGenerator): Array<[numbe
 
 /**
  * Fitness Proportionate Selection
- * - Become a parent with a probability which is proportional to one's fitness
+ * Become a parent with a probability which is proportional to one's fitness
  */
 export function parent_selection(cars: Array<Car>): Car
 {
@@ -66,10 +67,38 @@ export function parent_selection(cars: Array<Car>): Car
     return undefined;
 }
 
+/**
+ * A.k.a reproduce
+ * Uniform crossover
+ */
+export function crossover(mom: Array<[number, string, number]>, dad: Array<[number, string, number]>): Array<[number, string, number]>
+{
+    let length = Math.min(mom.length, dad.length);
+
+    let kid: Array<[number, string, number]> = [];
+    for(let i = 0; i < length; i++)
+    {
+        let gene = rand_boolean() ? mom[i] : dad[i];
+        kid.push(gene);
+    }
+    
+    // Adopt remaining genes from bigger chromsome
+    let parent = mom.length > dad.length ? mom : dad;
+    for(let i = length; i < parent.length; i++)
+        kid.push(parent[i]);
+
+    return kid;
+}
+
 /** Utilities */
 
 function rand_between(from: number, to: number)
 {
     return (Math.random() * (to - from)) + from;
+}
+
+function rand_boolean()
+{
+    return Math.round(Math.random()) == 0;
 }
 

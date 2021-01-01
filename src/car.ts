@@ -49,18 +49,20 @@ export class Car
     private acceleration: number    = 0;
     private steer_angle: number     = 0;
 
-    private chromosome: Array<any>;
+    private chromosome: Array<[number, string, number]>;
     
     private progress: Set<Phaser.Geom.Point> = new Set();
     private last_progress: number;
-    
+
+    private family_tree: any = {};
+
     // Debug
     private text:       Phaser.GameObjects.Text;
     
     public index:      number;
     private _stopped: boolean = false;
 
-    constructor(scene: Phaser.Scene, track: Phaser.Geom.Point[], index: number,  chromosome: Array<any>)
+    constructor(scene: Phaser.Scene, track: Phaser.Geom.Point[], index: number, chromosome:Array<[number, string, number]>)
     {
         this.chromosome = chromosome;
         this.track = track;
@@ -83,11 +85,28 @@ export class Car
         let ai_control =  this.act(time);
         this.inputs(ai_control);
         //this.inputs(user_control);
-        this.physics(time, delta);
+        this.physics(delta);
         
         this.track_progress(time);
         
         this.info(graphics);
+    }
+    
+    public replaceDNA(mom, dad, chromosome: Array<[number, string, number]>)
+    {
+        this.family_tree.mom = mom;
+        this.family_tree.dad = dad;
+        this.chromosome = chromosome;
+    }
+
+    public restart()
+    {
+        this.car.setPosition(this.track[0].x, this.track[0].y);
+        this.car.setRotation(vector(this.track[0], this.track[1]).angle() + Math.PI/2);
+
+        this.progress = new Set();
+        this.last_progress = 0;
+        this._stopped = false;
     }
 
     get object(): Phaser.Physics.Matter.Image
@@ -103,6 +122,11 @@ export class Car
     get stopped(): boolean
     {
         return this._stopped;
+    }
+
+    get dna(): Array<[number, string, number]>
+    {
+        return this.chromosome;
     }
 
     private act(time: number): Control
@@ -165,7 +189,7 @@ export class Car
         }
     }
 
-    private physics(time, delta)
+    private physics(delta)
     {
         let friction_force  = round(this.velocity * this.FRICTION);
         let drag_force      = round(this.velocity * this.velocity * this.DRAG);
