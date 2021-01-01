@@ -1,10 +1,7 @@
-/// <reference path="./ai.ts">
-
 import 'phaser';
 import { Car, Control } from './car';
-import { generateTrack, TRACK_WIDTH } from './track';
-import { round } from './util';
-import { generate_population, POPULATION_SIZE } from './ai';
+import { generateTrack } from './track';
+import { generate_population, parent_selection, POPULATION_SIZE } from './ai';
 
 export default class MainScene extends Phaser.Scene
 {
@@ -24,6 +21,8 @@ export default class MainScene extends Phaser.Scene
     private inner:          Phaser.Geom.Point[] = [];
     private outer:          Phaser.Geom.Point[] = [];
 
+    private generation_count: number = 0;
+
     // Debug
     zoom = 0.18;
     graphics:       Phaser.GameObjects.Graphics;
@@ -33,6 +32,8 @@ export default class MainScene extends Phaser.Scene
     right:  number  = 0;
     up:     number  = 0;
     down:   number  = 0;
+
+    allStopped = false;
     
     constructor ()
     {
@@ -61,6 +62,8 @@ export default class MainScene extends Phaser.Scene
         this.input.keyboard.on('keydown-M', () => {
             console.log(JSON.stringify(this.recording));
         });
+        
+        this.controls   = new Control();
 
         this.cursors = this.input.keyboard.createCursorKeys();
         this.d_key = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
@@ -70,19 +73,19 @@ export default class MainScene extends Phaser.Scene
         
         this.dot    = this.matter.add.image(200, 200, 'dot');
         
-        this.text = this.add.text(-1080*2, -720*2, '', { font: '256px Courier', fill: '#00ff00' });
+        this.text = this.add.text(-1080*2, -720*2, '', { font: '96px Courier', fill: '#00ff00' });
         this.text.setScrollFactor(0);
         
         this.graphics = this.add.graphics({ lineStyle: { width: 2, color: 0xff0000 }, fillStyle: { color: 0x00ff00 } },);
         
         [this.track, this.inner, this.outer] = generateTrack(Phaser.Math.RND);
         
-        let chromosomes = generate_population(Phaser.Math.RND)
+        
+        let population = generate_population(Phaser.Math.RND)
         this.cars = [];
         for(let i = 0; i < POPULATION_SIZE; i++)
-            this.cars[i]       = new Car(this, this.track, i, chromosomes[i]);
+            this.cars[i]       = new Car(this, this.track, i, population[i]);
         
-            this.controls   = new Control();
 
         this.cameras.main.startFollow(this.dot, false);
     }
@@ -97,12 +100,16 @@ export default class MainScene extends Phaser.Scene
         //this.steer();
         //this.record(time);
         //this.accelerate();
-        
+
         for(let car of this.cars)
             car.update(time, delta, this.controls, this.graphics);
-        
+
+        let everyoneStopped = this.cars.reduce((prev, curr) => !prev ? false : curr.stopped, true);
+        if(everyoneStopped)
+            this.next_generation();
+
         this.drawTrack();
-        
+
         this.debug(time, delta);
     }
 
@@ -214,6 +221,17 @@ export default class MainScene extends Phaser.Scene
         this.graphics.strokePoints(this.outer);
     }
 
+    next_generation()
+    {
+        let count = new Array(this.cars.length).fill(0);
+        while(true)
+        {
+            let c = parent_selection(this.cars);  
+            //console.log(`${c.index}, ${c.fitness}`);
+            count[c.index]++;
+        }
+    }
+
     debug(time, delta)
     {
         
@@ -226,9 +244,14 @@ export default class MainScene extends Phaser.Scene
         for(let p of this.track)
             this.graphics.fillCircle(p.x, p.y, 20);
 
-        this.text.setText([
-            'time: '        + Math.floor(time),
-        ]);
+        let best = [];
+        let info = ['time: ' + Math.floor(time), 'Generation: ' + this.generation_count];
+        best = this.cars.sort((a, b) => b.fitness - a.fitness);
+        
+        for(let i = 0; i < best.length; i++)
+            info.push(`${this.pad(i+1)} #${this.pad(best[i].index)} | ${best[i].fitness}`);
+
+        this.text.setText(info);
     }
 
     /**
@@ -249,6 +272,11 @@ export default class MainScene extends Phaser.Scene
         let arrowhead2  = direction.clone().rotate(-Math.PI/2 + Math.PI/4).normalize().scale(LINE_WIDTH);
         this.graphics.lineBetween(to.x, to.y, to.x + arrowhead1.x, to.y + arrowhead1.y);
         this.graphics.lineBetween(to.x, to.y, to.x + arrowhead2.x, to.y + arrowhead2.y);
+    }
+
+    pad(str): string
+    {
+        return str.toString().padStart(2, ' ');
     }
 }
 

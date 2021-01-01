@@ -32,6 +32,7 @@ export class Car
     private readonly WHEEL_BASE     = 35;
     private readonly RATES          = [4,  4,  4,  4, 4, 3, 2, 2, 1, 1]; // How fast we can steer to one direction
     private readonly RANGES         = [10, 10, 10, 5, 5, 3, 2, 2, 1, 1]; // How far we can steer in one direction
+    private readonly URGENCY        = 3000; // Progress on track has to be made in this time interval (millisec)
     
     // Publicly accessed
     private car: Phaser.Physics.Matter.Image;
@@ -49,13 +50,15 @@ export class Car
     private steer_angle: number     = 0;
 
     private chromosome: Array<any>;
-    private index:      number;
-
+    
     private progress: Set<Phaser.Geom.Point> = new Set();
-
+    private last_progress: number;
+    
     // Debug
     private text:       Phaser.GameObjects.Text;
-
+    
+    public index:      number;
+    private _stopped: boolean = false;
 
     constructor(scene: Phaser.Scene, track: Phaser.Geom.Point[], index: number,  chromosome: Array<any>)
     {
@@ -81,13 +84,25 @@ export class Car
         this.inputs(ai_control);
         //this.inputs(user_control);
         this.physics(time, delta);
-        this.trackProgress();
+        
+        this.track_progress(time);
+        
         this.info(graphics);
     }
 
     get object(): Phaser.Physics.Matter.Image
     {
         return this.car;
+    }
+
+    get fitness(): number
+    {
+        return Math.floor((this.progress.size/this.track.length)*100); 
+    }
+
+    get stopped(): boolean
+    {
+        return this._stopped;
     }
 
     private act(time: number): Control
@@ -157,6 +172,9 @@ export class Car
 
         this.velocity += this.acceleration;
         this.velocity += friction_force + drag_force;
+
+        if(this._stopped)
+            this.velocity = 0;
         
         // We reduce velocity when we are too far out of track
         this.circle.setPosition(this.car.x, this.car.y);
@@ -192,23 +210,35 @@ export class Car
     }
 
     
-    trackProgress()
+    private track_progress(time) // TODO: Change to fitness
     {
         this.circle.setPosition(this.car.x, this.car.y);
         
+        let length = this.progress.size;
         for(let p of this.track)
         {
             if(this.circle.contains(p.x, p.y))
                 this.progress.add(p);
         }
+
+        if(length < this.progress.size)
+            this.last_progress = time;
+
+        let delta = time - this.last_progress;
+        if(delta > this.URGENCY)
+            this._stopped = true;
     }
 
     private info(graphics: Phaser.GameObjects.Graphics)
     {
         this.text.setPosition(this.car.x, this.car.y);
         this.text.setText(
-            this.index.toString() + "|" + round(this.progress.size/this.track.length)*100 + '%'    
+            this.index.toString() + "|" + this.fitness + '%'    
         );
+
+        if(this._stopped) {
+            graphics.fillCircle(this.object.x, this.object.y, 50);
+        }
 
         // this.graphics.strokeCircle(this.cars.object.x, this.cars.object.y, TRACK_WIDTH + 50);
     }
