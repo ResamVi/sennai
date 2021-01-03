@@ -1,17 +1,14 @@
 import { Car} from './car';
 
-export const POPULATION_SIZE   = 20;
-export const ELIMINIATION_AMOUNT = 5;
+export const START_POPULATION   = 10;
+export const NEW_SPAWNS         = 5;
 
 const INITIAL_INPUTS    = 100;
 
-const MIN_DURATION      = 10;
-const MAX_DURATION      = 800;
+const MIN_DURATION      = 1;
+const MAX_DURATION      = 100;
 
 const VARIANCE          = 0.2;
-
-const MIN_NEXT          = 50;
-const MAX_NEXT          = 800;
 
 /**
  *  Generate a subset of solutions (a set of chromosomes)
@@ -19,7 +16,7 @@ const MAX_NEXT          = 800;
 export function generate_population(rng: Phaser.Math.RandomDataGenerator): Array<Array<[number, string, number]>>
 {
     let population: Array<Array<[number, string, number]>> = [];
-    for(let i = 0; i < POPULATION_SIZE; i++)
+    for(let i = 0; i < START_POPULATION; i++)
         population.push(generate_chromosome(rng));
 
     return population;
@@ -30,18 +27,19 @@ export function generate_population(rng: Phaser.Math.RandomDataGenerator): Array
  */
 function generate_chromosome(rng: Phaser.Math.RandomDataGenerator): Array<[number, string, number]>
 {
-    let chromosome: Array<[number, string, number]> = [];
+    let chromosome: Array<[number, string, number]> = [[0, "up", 15000]];
 
     let timestamp = 0;
 
     let input_count = Math.floor(rand_between(INITIAL_INPUTS * (1 - VARIANCE), INITIAL_INPUTS * (1 + VARIANCE)));
     for(let i = 0; i < input_count; i++)
     {
-        let action = rng.pick(["up", "up", "up", "left", "left", "left", "right", "right", "down"])
-        let genome: [number, string, number] = [timestamp, action, rand_between(MIN_DURATION, MAX_DURATION)]
+        let action = rng.pick(["left", "left", "left", "left", "right", "right", "right", "down", "down"])
+        let duration = rand_between(MIN_DURATION, MAX_DURATION)
+        let genome: [number, string, number] = [timestamp, action, duration];
         chromosome.push(genome);
 
-        timestamp += rand_between(MIN_NEXT, MAX_NEXT);
+        timestamp += duration;
     }
 
     return chromosome;

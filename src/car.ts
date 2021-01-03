@@ -32,7 +32,7 @@ export class Car
     private readonly WHEEL_BASE     = 35;
     private readonly RATES          = [4,  4,  4,  4, 4, 3, 2, 2, 1, 1]; // How fast we can steer to one direction
     private readonly RANGES         = [10, 10, 10, 5, 5, 3, 2, 2, 1, 1]; // How far we can steer in one direction
-    private readonly URGENCY        = 3000; // Progress on track has to be made in this time interval (millisec)
+    private readonly URGENCY        = 1000; // Progress on track has to be made in this time interval (millisec)
     
     // Publicly accessed
     private car: Phaser.Physics.Matter.Image;
@@ -80,14 +80,14 @@ export class Car
         this.text.setScrollFactor(1);
     }
 
-    public update(time: number, delta: number, user_control: Control, graphics: Phaser.GameObjects.Graphics)
+    public update(frames: number, delta: number, user_control: Control, graphics: Phaser.GameObjects.Graphics)
     {
-        let ai_control =  this.act(time);
+        let ai_control =  this.act(frames);
         this.inputs(ai_control);
         //this.inputs(user_control);
         this.physics(delta);
         
-        this.track_progress(time);
+        this.track_progress(frames);
         
         this.info(graphics);
     }
@@ -129,7 +129,7 @@ export class Car
         return this.chromosome;
     }
 
-    private act(time: number): Control
+    private act(frames: number): Control
     {
         let control = new Control();
         
@@ -137,7 +137,7 @@ export class Car
         {
             let [start, action, duration] = gene;
             
-            if(start < time && time < start+duration)
+            if(start < frames && frames < start+duration)
                 control[action] = true;
         }
 
@@ -176,14 +176,15 @@ export class Car
         {
             this.acceleration = this.acceleration + this.POWER;
         }
-        else if (control.down) // Braking
+        if (control.down) // Braking
         {
             this.acceleration -= this.BRAKEPOWER;
             
             if(this.acceleration < 0)
                 this.acceleration = 0;
         }
-        else // Rolling
+        
+        if (!control.down && !control.up) // Rolling
         {
             this.acceleration = Math.max(this.acceleration - 8, 0);
         }
@@ -234,7 +235,7 @@ export class Car
     }
 
     
-    private track_progress(time) // TODO: Change to fitness
+    private track_progress(frames) // TODO: Change to fitness
     {
         this.circle.setPosition(this.car.x, this.car.y);
         
@@ -246,9 +247,9 @@ export class Car
         }
 
         if(length < this.progress.size)
-            this.last_progress = time;
+            this.last_progress = frames;
 
-        let delta = time - this.last_progress;
+        let delta = frames - this.last_progress;
         if(delta > this.URGENCY)
             this._stopped = true;
     }

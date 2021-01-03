@@ -1,7 +1,7 @@
 import 'phaser';
 import { Car, Control } from './car';
 import { generateTrack } from './track';
-import { generate_population, parent_selection, crossover, POPULATION_SIZE, ELIMINIATION_AMOUNT  } from './ai';
+import { generate_population, parent_selection, crossover, NEW_SPAWNS, START_POPULATION  } from './ai';
 
 export default class MainScene extends Phaser.Scene
 {
@@ -24,6 +24,10 @@ export default class MainScene extends Phaser.Scene
     private generation_count: number = 0;
     private round_start: number       = 0;
 
+    private next_index: number = 0;
+
+    private frames: number = 0;
+
     // Debug
     zoom = 0.18;
     graphics:       Phaser.GameObjects.Graphics;
@@ -34,7 +38,7 @@ export default class MainScene extends Phaser.Scene
     up:     number  = 0;
     down:   number  = 0;
 
-    allStopped = false;
+    speed: number = 1;
     
     constructor ()
     {
@@ -48,6 +52,8 @@ export default class MainScene extends Phaser.Scene
         this.load.image('grid', 'assets/grid.png');
         this.load.image('track', 'assets/track.png');
         this.load.image('dot', 'assets/dot.png');
+
+        this.load.json('ai', 'ai/0.json');
     }
 
     create ()
@@ -60,10 +66,18 @@ export default class MainScene extends Phaser.Scene
             [this.track, this.inner, this.outer] = generateTrack(Phaser.Math.RND);
         });
 
-        this.input.keyboard.on('keydown-M', () => {
+        this.input.keyboard.on('keydown-B', () => {
             console.log(JSON.stringify(this.recording));
         });
         
+        this.input.keyboard.on('keydown-M', () => {
+            this.speed += 1;
+        });
+
+        this.input.keyboard.on('keydown-N', () => {
+            this.speed -= 1;
+        });
+
         this.controls   = new Control();
 
         this.cursors = this.input.keyboard.createCursorKeys();
@@ -81,12 +95,12 @@ export default class MainScene extends Phaser.Scene
         
         [this.track, this.inner, this.outer] = generateTrack(Phaser.Math.RND);
         
-        
+        //let ai = this.cache.json.get('ai');
+
         let population = generate_population(Phaser.Math.RND)
         this.cars = [];
-        for(let i = 0; i < POPULATION_SIZE; i++)
-            this.cars[i]       = new Car(this, this.track, i, population[i]);
-        
+        for(;this.next_index < START_POPULATION; this.next_index++)
+            this.cars[this.next_index]       = new Car(this, this.track, this.next_index, population[this.next_index]);
 
         this.cameras.main.startFollow(this.dot, false);
     }
@@ -103,15 +117,19 @@ export default class MainScene extends Phaser.Scene
         //this.accelerate();
 
         for(let car of this.cars)
-            car.update(this.roundTime(time), delta, this.controls, this.graphics);
+        {
+            for(let i = 0; i < this.speed; i++)
+                car.update(this.frames, delta, this.controls, this.graphics);
+        }
 
         let everyoneStopped = this.cars.reduce((prev, curr) => !prev ? false : curr.stopped, true);
         if(everyoneStopped)
             this.next_generation(time);
 
         this.drawTrack();
-
         this.debug(time);
+
+        this.frames += 1;
     }
 
     spectate()
@@ -151,41 +169,41 @@ export default class MainScene extends Phaser.Scene
 
     record(time: number)
     {
-        // Keep track of duration
+        // Keep track of duration (counted in total frames)
         if(this.cursors.left.isDown)
-            this.left = this.cursors.left.getDuration();
+            this.left += 1;
         if(this.cursors.right.isDown)
-            this.right = this.cursors.right.getDuration();
+            this.right += 1;
         if(this.cursors.up.isDown)
-            this.up = this.cursors.up.getDuration();
+            this.up += 1;
         if(this.cursors.down.isDown)
-            this.down = this.cursors.down.getDuration();
+            this.down += 1;
 
         // On key release, when the key-press-duration was measured: store
         if (this.cursors.left.isUp && this.left > 0)
         {
-            let item = [time - this.left, "left", this.left];
+            let item = [this.frames - this.left, "left", this.left];
             this.recording.push(item);
             this.left = 0;
         }
         
         if (this.cursors.right.isUp && this.right > 0)
         {
-            let item = [time - this.left, "right", this.right];
+            let item = [this.frames - this.right, "right", this.right];
             this.recording.push(item);
             this.right = 0;
         }
         
         if (this.cursors.up.isUp && this.up > 0)
         {
-            let item = [time - this.up, "up", this.up];
+            let item = [this.frames - this.up, "up", this.up];
             this.recording.push(item);
             this.up = 0;
         }
 
         if (this.cursors.down.isUp && this.down > 0)
         {
-            let item = [time - this.down, "down", this.down];
+            let item = [this.frames - this.down, "down", this.down];
             this.recording.push(item);
             this.down = 0;
         }
@@ -198,12 +216,14 @@ export default class MainScene extends Phaser.Scene
             this.controls.up    = true;
             this.controls.down  = false;
         }
-        else if (this.cursors.down.isDown) // Braking
+        
+        if (this.cursors.down.isDown) // Braking
         {
             this.controls.down  = true;
             this.controls.up    = false;
         }
-        else // Rolling
+        
+        if(!this.cursors.down.isDown && !this.cursors.up.isDown) // Rolling
         {
             this.controls.down = false;
             this.controls.up = false;
@@ -224,25 +244,24 @@ export default class MainScene extends Phaser.Scene
 
     next_generation(time)
     {   
-        let best_perfomers = this.cars.sort((a, b) => b.fitness - a.fitness);
-        let worst_performers = best_perfomers.slice(best_perfomers.length - ELIMINIATION_AMOUNT );
-
-        for(let i = 0; i < ELIMINIATION_AMOUNT; i++)
+        for(let i = 0; i < NEW_SPAWNS; i++)
         {
             let mom = parent_selection(this.cars);
             let dad = parent_selection(this.cars);
             
-            for(let car of worst_performers)
-            {
-                let kid_dna = crossover(mom.dna, dad.dna);
-                car.replaceDNA(mom, dad, kid_dna);
-            }
-        }
+            let kid_dna = crossover(mom.dna, dad.dna);
+            
+            this.cars.push(new Car(this, this.track, this.next_index, kid_dna))
+            // TODO: Reference to mom and dad
 
+            this.next_index++;
+        }
+        
         for(let car of this.cars)
         {
+            (window as any).data1.push({x: this.generation_count, y: car.fitness});
+            (window as any).myChart.update();
             car.restart();
-
         }
 
         this.generation_count++;
@@ -265,7 +284,7 @@ export default class MainScene extends Phaser.Scene
         let info = ['time: ' + Math.floor(time), 'round_time: ' + this.roundTime(time), 'Generation: ' + this.generation_count];
         best = this.cars.sort((a, b) => b.fitness - a.fitness);
         
-        for(let i = 0; i < best.length; i++)
+        for(let i = 0; i < Math.min(best.length, 30); i++)
             info.push(`${this.pad(i+1)} #${this.pad(best[i].index)} | ${best[i].fitness}`);
 
         this.text.setText(info);
@@ -308,10 +327,10 @@ const config = {
     parent: 'game',
     width: 1080,
     height: 720,
-    //scale: {
-    //    mode: Phaser.Scale.FIT,
-    //    autoCenter: Phaser.Scale.CENTER_BOTH
-    //},
+    scale: {
+        mode: Phaser.Scale.FIT,
+        autoCenter: Phaser.Scale.CENTER_BOTH
+    },
     scene: [MainScene],
     seed: ["Wow"],
     physics: {

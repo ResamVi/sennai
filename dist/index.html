@@ -7,17 +7,17 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.4/Chart.min.js" integrity="sha512-d9xgZrVZpmmQlfonhQUvTR7lMPtO7NkZMkA0ABN3PHCbKA5nqylQ/yWlFAyY6hYgdF1Qh6nYiuADWwKB4C2WSw==" crossorigin="anonymous"></script>
 </head>
 
-<body style="margin: 0px; display: flex;">
+<body style="margin: 0px;">
     <div id="game" style="width:100%"></div>
     
-    <!--<div style="width:30%;margin-left: 50px">
-        <canvas id="myChart" width="400" height="360"></canvas>
-    </div>-->
+    <div style="width:100%;margin-left: 0px">
+        <canvas id="myChart" width="1080" height="360"></canvas>
+    </div>
 </body>
 
 
 
-<!--<script>
+<script>
 window.data1 = [];
 
 
@@ -26,7 +26,7 @@ window.myChart = new Chart(ctx, {
     type: 'scatter',
     data: {
         datasets: [{
-            label: 'Velocity',
+            label: 'Fitness',
             backgroundColor: "#ff0000",
             data: window.data1
         },
@@ -55,6 +55,5 @@ window.myChart = new Chart(ctx, {
         }
     }
 });
-</script>-->
-
+</script>
 </html>
