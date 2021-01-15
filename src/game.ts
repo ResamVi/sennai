@@ -95,14 +95,14 @@ export default class MainScene extends Phaser.Scene
         
         [this.track, this.inner, this.outer] = generateTrack(Phaser.Math.RND);
         
-        //let ai = this.cache.json.get('ai');
+        let ai = this.cache.json.get('ai');
 
         let population = generate_population(Phaser.Math.RND)
         this.cars = [];
-        for(;this.next_index < START_POPULATION; this.next_index++) // USP
-            this.cars[this.next_index]       = new Car(this, this.track, this.next_index, population[this.next_index]);
+        for(;this.next_index < 1; this.next_index++) // USP
+            this.cars[this.next_index]       = new Car(this, this.track, this.next_index, ai);
 
-        this.cameras.main.startFollow(this.dot, false); // USP
+        this.cameras.main.startFollow(this.cars[0].object, false); // USP
     }
     
     update(time, delta)
@@ -112,9 +112,9 @@ export default class MainScene extends Phaser.Scene
 
         // Player Controls
         this.spectate();
-        //this.steer(); // USP
-        //this.record(time);
-        //this.accelerate();
+        this.steer(); // USP
+        this.record(time);
+        this.accelerate();
 
         for(let car of this.cars)
         {
@@ -122,9 +122,9 @@ export default class MainScene extends Phaser.Scene
                 car.update(this.frames, delta, this.controls, this.graphics);
         }
 
-        let everyoneStopped = this.cars.reduce((prev, curr) => !prev ? false : curr.stopped, true);
-        if(everyoneStopped)
-            this.next_generation(time);
+        //let everyoneStopped = this.cars.reduce((prev, curr) => !prev ? false : curr.stopped, true);
+        //if(everyoneStopped)
+        //    this.next_generation(time);
 
         this.drawTrack();
         this.debug(time);
@@ -259,8 +259,8 @@ export default class MainScene extends Phaser.Scene
 
         for(let car of this.cars)
         {
-            //if(Math.random() < 0.7)
-                //mutate(car.dna);
+            if(Math.random() < 0.7)
+                mutate(car.dna);
         }
         
         for(let car of this.cars)
@@ -272,7 +272,7 @@ export default class MainScene extends Phaser.Scene
         }
 
         // Remove cars of old age
-        this.cars = this.cars.filter(car => car.current_age < 6);
+        this.cars = this.cars.filter(car => car.current_age < 3);
 
         this.generation_count++;
         this.round_start = time;

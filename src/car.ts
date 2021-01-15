@@ -32,7 +32,7 @@ export class Car
     private readonly WHEEL_BASE     = 35;
     private readonly RATES          = [4,  4,  4,  4, 4, 3, 2, 2, 1, 1]; // How fast we can steer to one direction
     private readonly RANGES         = [10, 10, 10, 5, 5, 3, 2, 2, 1, 1]; // How far we can steer in one direction
-    private readonly URGENCY        = 50; // Progress on track has to be made in this time interval (millisec)
+    private readonly URGENCY        = 70; // Progress on track has to be made in this time interval (frames)
     
     // Publicly accessed
     private car: Phaser.Physics.Matter.Image;
@@ -84,8 +84,8 @@ export class Car
     public update(frames: number, delta: number, user_control: Control, graphics: Phaser.GameObjects.Graphics)
     {
         let ai_control =  this.act(frames);
-        this.inputs(ai_control);
-        //this.inputs(user_control); // USP
+        //this.inputs(ai_control);
+        this.inputs(user_control); // USP
         this.physics(delta);
         
         this.track_progress(frames);

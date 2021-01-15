@@ -41,7 +41,7 @@ function generate_chromosome(rng: Phaser.Math.RandomDataGenerator): Array<[numbe
         for(let genome of genomes)
             chromosome.push(genome);
         
-        timestamp += INPUT_DURATION + 5;
+        timestamp += INPUT_DURATION + 50;
     }
 
     return chromosome;
