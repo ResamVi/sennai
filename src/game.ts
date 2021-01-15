@@ -1,7 +1,7 @@
 import 'phaser';
 import { Car, Control } from './car';
 import { generateTrack } from './track';
-import { generate_population, parent_selection, crossover, NEW_SPAWNS, START_POPULATION  } from './ai';
+import { generate_population, parent_selection, crossover, mutate, NEW_SPAWNS, START_POPULATION  } from './ai';
 
 export default class MainScene extends Phaser.Scene
 {
@@ -99,10 +99,10 @@ export default class MainScene extends Phaser.Scene
 
         let population = generate_population(Phaser.Math.RND)
         this.cars = [];
-        for(;this.next_index < START_POPULATION; this.next_index++)
+        for(;this.next_index < START_POPULATION; this.next_index++) // USP
             this.cars[this.next_index]       = new Car(this, this.track, this.next_index, population[this.next_index]);
 
-        this.cameras.main.startFollow(this.dot, false);
+        this.cameras.main.startFollow(this.dot, false); // USP
     }
     
     update(time, delta)
@@ -112,7 +112,7 @@ export default class MainScene extends Phaser.Scene
 
         // Player Controls
         this.spectate();
-        //this.steer();
+        //this.steer(); // USP
         //this.record(time);
         //this.accelerate();
 
@@ -256,13 +256,23 @@ export default class MainScene extends Phaser.Scene
 
             this.next_index++;
         }
+
+        for(let car of this.cars)
+        {
+            //if(Math.random() < 0.7)
+                //mutate(car.dna);
+        }
         
         for(let car of this.cars)
         {
-            (window as any).data1.push({x: this.generation_count, y: car.fitness});
-            (window as any).myChart.update();
+            //(window as any).data1.push({x: this.generation_count, y: car.fitness});
+            //(window as any).myChart.update();
+            car.age();
             car.restart();
         }
+
+        // Remove cars of old age
+        this.cars = this.cars.filter(car => car.current_age < 6);
 
         this.generation_count++;
         this.round_start = time;

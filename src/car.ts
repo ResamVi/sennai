@@ -32,7 +32,7 @@ export class Car
     private readonly WHEEL_BASE     = 35;
     private readonly RATES          = [4,  4,  4,  4, 4, 3, 2, 2, 1, 1]; // How fast we can steer to one direction
     private readonly RANGES         = [10, 10, 10, 5, 5, 3, 2, 2, 1, 1]; // How far we can steer in one direction
-    private readonly URGENCY        = 1000; // Progress on track has to be made in this time interval (millisec)
+    private readonly URGENCY        = 50; // Progress on track has to be made in this time interval (millisec)
     
     // Publicly accessed
     private car: Phaser.Physics.Matter.Image;
@@ -53,6 +53,7 @@ export class Car
     
     private progress: Set<Phaser.Geom.Point> = new Set();
     private last_progress: number;
+    private _current_age: number = 0;
 
     private family_tree: any = {};
 
@@ -84,7 +85,7 @@ export class Car
     {
         let ai_control =  this.act(frames);
         this.inputs(ai_control);
-        //this.inputs(user_control);
+        //this.inputs(user_control); // USP
         this.physics(delta);
         
         this.track_progress(frames);
@@ -107,6 +108,16 @@ export class Car
         this.progress = new Set();
         this.last_progress = 0;
         this._stopped = false;
+    }
+
+    public age()
+    {
+        this._current_age++;
+    }
+
+    get current_age(): number
+    {
+        return this._current_age;
     }
 
     get object(): Phaser.Physics.Matter.Image
@@ -198,7 +209,7 @@ export class Car
         this.velocity += this.acceleration;
         this.velocity += friction_force + drag_force;
 
-        if(this._stopped)
+        if(this._stopped) // USP
             this.velocity = 0;
         
         // We reduce velocity when we are too far out of track
