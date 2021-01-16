@@ -19,7 +19,8 @@ export class TestScene extends Phaser.Scene
 
     create()
     {
-        this.socket = io();
+        console.log(io);
+        //this.socket = io();
         this.car = new Car(this, [new Phaser.Geom.Point(50, 50)], 0, []);
     }
 
