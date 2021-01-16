@@ -1,11 +1,10 @@
-import { io } from 'socket.io-client';
 import { Car, Control } from './car';
 import { generateTrack } from './track';
 import { generate_population, parent_selection, crossover, mutate, NEW_SPAWNS, START_POPULATION  } from './ai';
 
 export default class MainScene extends Phaser.Scene
 {
-  private dot:        Phaser.Physics.Matter.Image;
+    private dot:        Phaser.Physics.Matter.Image;
     private cursors:    Phaser.Types.Input.Keyboard.CursorKeys; // TODO: Put into dedicated controls module
     private text:       Phaser.GameObjects.Text;
     
@@ -27,6 +26,8 @@ export default class MainScene extends Phaser.Scene
     private next_index: number = 0;
 
     private frames: number = 0;
+
+    private socket: any;
 
     // Debug
     zoom = 0.18;
@@ -75,6 +76,17 @@ export default class MainScene extends Phaser.Scene
         this.input.keyboard.on('keydown-N', () => {
             this.speed -= 1;
         });
+
+        const socket = new WebSocket('ws://localhost:7999/echo');
+        // Connection opened
+        socket.onopen = (event) => {
+            socket.send('Hello Server!');
+        };
+
+        // Listen for messages
+        socket.onmessage = (event) => {
+            console.log('Message from server ', event.data);
+        };
 
         this.controls   = new Control();
 
