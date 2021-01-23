@@ -1,6 +1,6 @@
 import { Car, Control } from './car';
 import { generateTrack } from './track';
-import { generate_population, parent_selection, crossover, mutate, NEW_SPAWNS, START_POPULATION  } from './ai';
+import { typeOf, contentOf } from './util';
 
 export default class MainScene extends Phaser.Scene
 {
@@ -8,26 +8,18 @@ export default class MainScene extends Phaser.Scene
     private cursors:    Phaser.Types.Input.Keyboard.CursorKeys; // TODO: Put into dedicated controls module
     private text:       Phaser.GameObjects.Text;
     
-    private controls: Control;
-    
-    private w_key: Phaser.Input.Keyboard.Key;
-    private s_key: Phaser.Input.Keyboard.Key;
-    private a_key: Phaser.Input.Keyboard.Key;
-    private d_key: Phaser.Input.Keyboard.Key;
-    
     private cars:           Car[]               = [];
     private track:          Phaser.Geom.Point[] = [];
     private inner:          Phaser.Geom.Point[] = [];
     private outer:          Phaser.Geom.Point[] = [];
 
     private generation_count: number = 0;
-    private round_start: number       = 0;
 
-    private next_index: number = 0;
+    private id: number = 0;
 
     private frames: number = 0;
 
-    private socket: any;
+    private socket: WebSocket;
 
     // Debug
     zoom = 0.18;
@@ -38,8 +30,6 @@ export default class MainScene extends Phaser.Scene
     right:  number  = 0;
     up:     number  = 0;
     down:   number  = 0;
-
-    speed: number = 1;
     
     constructor ()
     {
@@ -51,12 +41,13 @@ export default class MainScene extends Phaser.Scene
         // TODO: Put into dedicated scene for loading
         this.load.image('car', 'assets/car.png');
         this.load.image('dot', 'assets/dot.png');
-
-        this.load.json('ai', 'assets/0.json');
     }
 
     create ()
     {   
+        this.socket = new WebSocket('ws://localhost:7999/ws');
+        this.socket.onmessage = ({data}) => this.parseData(data);
+        
         this.input.on('wheel', (a, b, c, deltaY) => {
             this.zoom -= 0.0001 * deltaY;
         });
@@ -66,35 +57,11 @@ export default class MainScene extends Phaser.Scene
         });
 
         this.input.keyboard.on('keydown-B', () => {
-            console.log(JSON.stringify(this.recording));
-        });
-        
-        this.input.keyboard.on('keydown-M', () => {
-            this.speed += 1;
+            console.log(this.cars[0].object.x, this.cars[0].object.y);
+            //console.log(JSON.stringify(this.recording));
         });
 
-        this.input.keyboard.on('keydown-N', () => {
-            this.speed -= 1;
-        });
-
-        const socket = new WebSocket('ws://localhost:7999/echo');
-        // Connection opened
-        socket.onopen = (event) => {
-            socket.send('Hello Server!');
-        };
-
-        // Listen for messages
-        socket.onmessage = (event) => {
-            console.log('Message from server ', event.data);
-        };
-
-        this.controls   = new Control();
-
-        this.cursors = this.input.keyboard.createCursorKeys();
-        this.d_key = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
-        this.w_key = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W);
-        this.s_key = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S);
-        this.a_key = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A);        
+        this.cursors = this.input.keyboard.createCursorKeys(); 
         
         this.dot    = this.matter.add.image(200, 200, 'dot');
         
@@ -104,15 +71,6 @@ export default class MainScene extends Phaser.Scene
         this.graphics = this.add.graphics({ lineStyle: { width: 2, color: 0xff0000 }, fillStyle: { color: 0x00ff00 } },);
         
         [this.track, this.inner, this.outer] = generateTrack(Phaser.Math.RND);
-        
-        let ai = this.cache.json.get('ai');
-
-        let population = generate_population(Phaser.Math.RND);
-        this.cars = [];
-        for(;this.next_index < 1; this.next_index++) // USP
-            this.cars[this.next_index]       = new Car(this, this.track, this.next_index, ai);
-
-        this.cameras.main.startFollow(this.cars[0].object, false); // USP
     }
     
     update(time, delta)
@@ -121,20 +79,10 @@ export default class MainScene extends Phaser.Scene
         this.graphics.clear();
 
         // Player Controls
-        this.spectate();
-        this.steer(); // USP
-        this.record(time);
-        this.accelerate();
+        this.controls();
 
         for(let car of this.cars)
-        {
-            for(let i = 0; i < this.speed; i++)
-                car.update(this.frames, delta, this.controls, this.graphics);
-        }
-
-        //let everyoneStopped = this.cars.reduce((prev, curr) => !prev ? false : curr.stopped, true);
-        //if(everyoneStopped)
-        //    this.next_generation(time);
+            car.update(this.frames, delta, this.graphics);
 
         this.drawTrack();
         this.debug(time);
@@ -142,108 +90,57 @@ export default class MainScene extends Phaser.Scene
         this.frames += 1;
     }
 
-    spectate()
+    leftKeyPressed;
+    rightKeyPressed;
+    upKeyPressed;
+    downKeyPressed;
+
+    controls()
     {
-        // Camera
-        if(this.w_key.isDown)
-            this.dot.y -= 50;
+        let oldLeft = this.leftKeyPressed;
+        let oldRight = this.rightKeyPressed;
+        let oldUp = this.upKeyPressed;
+        let oldDown = this.downKeyPressed;
 
-        if(this.s_key.isDown)
-            this.dot.y += 50;
-
-        if(this.a_key.isDown)
-            this.dot.x -= 50;
-
-        if(this.d_key.isDown)
-            this.dot.x += 50;
-    }
-
-    steer()
-    {
+        // steer
         if (this.cursors.left.isDown)
-        {
-            this.controls.left  = true;
-            this.controls.right = false;
-        }
+            this.leftKeyPressed = true;
         else if (this.cursors.right.isDown)
-        {
-            this.controls.right = true;
-            this.controls.left  = false;
-        }
+            this.rightKeyPressed = true;
         else
         {
-            this.controls.left  = false;
-            this.controls.right = false;
-        }
-    }
-
-    record(time: number)
-    {
-        // Keep track of duration (counted in total frames)
-        if(this.cursors.left.isDown)
-            this.left += 1;
-        if(this.cursors.right.isDown)
-            this.right += 1;
-        if(this.cursors.up.isDown)
-            this.up += 1;
-        if(this.cursors.down.isDown)
-            this.down += 1;
-
-        // On key release, when the key-press-duration was measured: store
-        if (this.cursors.left.isUp && this.left > 0)
-        {
-            let item = [this.frames - this.left, "left", this.left];
-            this.recording.push(item);
-            this.left = 0;
-        }
-        
-        if (this.cursors.right.isUp && this.right > 0)
-        {
-            let item = [this.frames - this.right, "right", this.right];
-            this.recording.push(item);
-            this.right = 0;
-        }
-        
-        if (this.cursors.up.isUp && this.up > 0)
-        {
-            let item = [this.frames - this.up, "up", this.up];
-            this.recording.push(item);
-            this.up = 0;
+            this.rightKeyPressed = false;
+            this.leftKeyPressed = false;
         }
 
-        if (this.cursors.down.isUp && this.down > 0)
+        if (this.cursors.up.isDown)
+            this.upKeyPressed = true;
+        else if (this.cursors.down.isDown)
+            this.downKeyPressed = true;
+        else
         {
-            let item = [this.frames - this.down, "down", this.down];
-            this.recording.push(item);
-            this.down = 0;
+            this.upKeyPressed = false;
+            this.downKeyPressed = false;
         }
-    }
 
-    accelerate()
-    {
-        if (this.cursors.up.isDown) // Accelerating
+        if (oldLeft !== this.leftKeyPressed || oldRight !== this.rightKeyPressed || oldUp !== this.upKeyPressed || oldDown !== this.downKeyPressed)
         {
-            this.controls.up    = true;
-            this.controls.down  = false;
-        }
-        
-        if (this.cursors.down.isDown) // Braking
-        {
-            this.controls.down  = true;
-            this.controls.up    = false;
-        }
-        
-        if(!this.cursors.down.isDown && !this.cursors.up.isDown) // Rolling
-        {
-            this.controls.down = false;
-            this.controls.up = false;
+            if(this.socket.readyState !== WebSocket.OPEN)
+                return
+            
+            this.send('input', {
+                left: this.leftKeyPressed,
+                right: this.rightKeyPressed,
+                up: this.upKeyPressed,
+                down: this.downKeyPressed
+            });
         }
     }
 
     drawTrack()
     {
         // Track line
-        this.graphics.lineStyle(2, 0x00ff00)
+        this.graphics.lineStyle(2, 0x00ff00);
         this.graphics.strokePoints(this.track);
         
         // Track bounds
@@ -252,40 +149,68 @@ export default class MainScene extends Phaser.Scene
         this.graphics.strokePoints(this.outer);
     }
 
-    next_generation(time)
-    {   
-        for(let i = 0; i < NEW_SPAWNS; i++)
+    parseData(payload)
+    {
+        let unpacked = contentOf(payload);
+        switch(typeOf(payload))
         {
-            let mom = parent_selection(this.cars);
-            let dad = parent_selection(this.cars);
-            
-            let kid_dna = crossover(mom.dna, dad.dna);
-            
-            this.cars.push(new Car(this, this.track, this.next_index, kid_dna))
-            // TODO: Reference to mom and dad
+            case "init":
+                this.initGame(unpacked);
+                break;
 
-            this.next_index++;
-        }
+            case "update":
+                this.updateGame(unpacked);
+                break;
 
-        for(let car of this.cars)
-        {
-            if(Math.random() < 0.7)
-                mutate(car.dna);
+            case "join":
+                this.playerJoined(unpacked);
+                break;
+
+            case "leave":
+                this.playerLeft(unpacked);
+                break;
         }
+    }
+
+    initGame(message)
+    {
+        let initPackage = JSON.parse(message);
+
+        this.id = initPackage.id;
         
-        for(let car of this.cars)
+        for(let car of initPackage.cars)
+            this.cars.push(new Car(this, this.track, car.id, car.x, car.y, car.rotation))
+        
+        this.cameras.main.startFollow(this.cars[this.id].object, false);
+    }
+
+    updateGame(message)
+    {
+        let data = JSON.parse(message);
+
+        for(let car of data)
         {
-            //(window as any).data1.push({x: this.generation_count, y: car.fitness});
-            //(window as any).myChart.update();
-            car.age();
-            car.restart();
+            this.cars[car.id].object.x          = car.x;
+            this.cars[car.id].object.y          = car.y;
+            this.cars[car.id].object.rotation   = car.rotation;
         }
+    }
 
-        // Remove cars of old age
-        this.cars = this.cars.filter(car => car.current_age < 3);
+    playerJoined(message)
+    {
+        let car = JSON.parse(message);
+        if(car.id === this.id)
+            return
 
-        this.generation_count++;
-        this.round_start = time;
+        this.cars.push(new Car(this, this.track, car.id, car.x, car.y, car.rotation));
+    }
+
+    playerLeft(message)
+    {
+        let id = JSON.parse(message);
+
+        this.cars[id].destroy();
+        this.cars = this.cars.filter((car) => {car.index != id});
     }
 
     debug(time)
@@ -300,11 +225,11 @@ export default class MainScene extends Phaser.Scene
         for(let p of this.track)
             this.graphics.fillCircle(p.x, p.y, 20);
 
-        let best = this.cars.sort((a, b) => b.fitness - a.fitness);
-        let info = ['time: ' + Math.floor(time), 'round_time: ' + this.roundTime(time), 'Generation: ' + this.generation_count];
+        // TODO: Reuse for best list
+        let info = ['time: ' + Math.floor(time), 'Generation: ' + this.generation_count];
         
-        for(let i = 0; i < Math.min(best.length, 30); i++)
-            info.push(`${this.pad(i+1)} #${this.pad(best[i].index)} | ${best[i].fitness}`);
+        //for(let i = 0; i < Math.min(best.length, 30); i++)
+        //    info.push(`${this.pad(i+1)} #${this.pad(best[i].index)} | ${best[i].fitness}`);
 
         this.text.setText(info);
     }
@@ -329,14 +254,16 @@ export default class MainScene extends Phaser.Scene
         this.graphics.lineBetween(to.x, to.y, to.x + arrowhead2.x, to.y + arrowhead2.y);
     }
 
-    roundTime(time: number): number
+    send(type, payload)
     {
-        return Math.floor(time - this.round_start);
+        if(this.socket.readyState !== WebSocket.OPEN)
+            return
+            
+        this.socket.send(type + "|" + JSON.stringify(payload));
     }
 
     pad(str): string
     {
         return str.toString().padStart(2, ' ');
     }
-
 }

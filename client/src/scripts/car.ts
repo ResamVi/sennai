@@ -22,7 +22,7 @@ export class Control
     }
 }
 
-export class Car
+export class Car // extend matter.image
 {
     // Constants
     private readonly POWER          = 5;
@@ -32,7 +32,6 @@ export class Car
     private readonly WHEEL_BASE     = 35;
     private readonly RATES          = [4,  4,  4,  4, 4, 3, 2, 2, 1, 1]; // How fast we can steer to one direction
     private readonly RANGES         = [10, 10, 10, 5, 5, 3, 2, 2, 1, 1]; // How far we can steer in one direction
-    private readonly URGENCY        = 70; // Progress on track has to be made in this time interval (frames)
     
     // Publicly accessed
     private car: Phaser.Physics.Matter.Image;
@@ -49,29 +48,24 @@ export class Car
     private acceleration: number    = 0;
     private steer_angle: number     = 0;
 
-    private chromosome: Array<[number, string, number]>;
     
     private progress: Set<Phaser.Geom.Point> = new Set();
     private last_progress: number;
-    private _current_age: number = 0;
 
-    private family_tree: any = {};
+    public index:      number;
 
     // Debug
     private text:       Phaser.GameObjects.Text;
     
-    public index:      number;
-    private _stopped: boolean = false;
 
-    constructor(scene: Phaser.Scene, track: Phaser.Geom.Point[], index: number, chromosome:Array<[number, string, number]>)
+    constructor(scene: Phaser.Scene, track: Phaser.Geom.Point[], index: number, x: number, y: number, rotation: number)
     {
-        this.chromosome = chromosome;
         this.track = track;
         this.index = index;
-        
+
         // Put Player on track and point him in right direction
-        this.car = scene.matter.add.image(track[0].x, track[0].y, 'car');
-        this.car.setRotation(vector(track[0], track[1]).angle() + Math.PI/2);
+        this.car = scene.matter.add.image(x, y, 'car');
+        this.car.setRotation(rotation); // TODO: Track currently hardcoded
 
         // Circle determines when we go out of track
         this.circle = new Phaser.Geom.Circle(this.car.x, this.car.y, TRACK_WIDTH + 50);
@@ -81,43 +75,19 @@ export class Car
         this.text.setScrollFactor(1);
     }
 
-    public update(frames: number, delta: number, user_control: Control, graphics: Phaser.GameObjects.Graphics)
+    public destroy()
     {
-        let ai_control =  this.act(frames);
-        //this.inputs(ai_control);
-        this.inputs(user_control); // USP
+        this.car.destroy();
+        this.text.destroy();
+    }
+
+    public update(frames: number, delta: number, graphics: Phaser.GameObjects.Graphics)
+    {
+        //this.steer(user_control);
         this.physics(delta);
+        this.track_progress(frames); // TODO: Rename to out of bounds
         
-        this.track_progress(frames);
-        
-        this.info(graphics);
-    }
-    
-    public replaceDNA(mom, dad, chromosome: Array<[number, string, number]>)
-    {
-        this.family_tree.mom = mom;
-        this.family_tree.dad = dad;
-        this.chromosome = chromosome;
-    }
-
-    public restart()
-    {
-        this.car.setPosition(this.track[0].x, this.track[0].y);
-        this.car.setRotation(vector(this.track[0], this.track[1]).angle() + Math.PI/2);
-
-        this.progress = new Set();
-        this.last_progress = 0;
-        this._stopped = false;
-    }
-
-    public age()
-    {
-        this._current_age++;
-    }
-
-    get current_age(): number
-    {
-        return this._current_age;
+        //this.info(graphics);
     }
 
     get object(): Phaser.Physics.Matter.Image
@@ -125,37 +95,7 @@ export class Car
         return this.car;
     }
 
-    get fitness(): number
-    {
-        return Math.floor((this.progress.size/this.track.length)*100); 
-    }
-
-    get stopped(): boolean
-    {
-        return this._stopped;
-    }
-
-    get dna(): Array<[number, string, number]>
-    {
-        return this.chromosome;
-    }
-
-    private act(frames: number): Control
-    {
-        let control = new Control();
-        
-        for(let gene of this.chromosome)
-        {
-            let [start, action, duration] = gene;
-            
-            if(start < frames && frames < start+duration)
-                control[action] = true;
-        }
-
-        return control;
-    }
-
-    private inputs(control: Control)
+    private steer(control: Control)
     {
         let r       = Math.min(this.velocity/2400, 1.0); // We say 2400 is the max velocity most reach
         let rate    = Phaser.Math.Interpolation.Linear(this.RATES, r);
@@ -208,9 +148,6 @@ export class Car
 
         this.velocity += this.acceleration;
         this.velocity += friction_force + drag_force;
-
-        if(this._stopped) // USP
-            this.velocity = 0;
         
         // We reduce velocity when we are too far out of track
         this.circle.setPosition(this.car.x, this.car.y);
@@ -237,12 +174,6 @@ export class Car
 
         this.car.rotation = carHeading.angle();
         this.car.setPosition(carLocation.x, carLocation.y);
-
-        //(window as any).data1.push({x: round(time)/1000, y: this.velocity});
-        //(window as any).data2.push({x: round(time)/1000, y: this.acceleration});
-        //(window as any).data3.push({x: round(time)/1000, y: -drag_force});
-        //(window as any).data4.push({x: round(time)/1000, y: -friction_force});
-        //(window as any).myChart.update();
     }
 
     
@@ -268,13 +199,7 @@ export class Car
     private info(graphics: Phaser.GameObjects.Graphics)
     {
         this.text.setPosition(this.car.x, this.car.y);
-        this.text.setText(
-            this.index.toString() + "|" + this.fitness + '%'    
-        );
-
-        if(this._stopped) {
-            graphics.fillCircle(this.object.x, this.object.y, 50);
-        }
+        //this.text.setText(this.index.toString() + "|" + this.fitness + '%');
 
         // this.graphics.strokeCircle(this.cars.object.x, this.cars.object.y, TRACK_WIDTH + 50);
     }

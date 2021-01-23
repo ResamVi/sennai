@@ -24,6 +24,8 @@ export const MAX_WIDTH      = 8000;
 export const MAX_HEIGHT     = 6000;
 export const MARGIN         = 10;
 
+// TODO: Rewrite in Go
+
 export function generateTrack(rng: Phaser.Math.RandomDataGenerator): Phaser.Geom.Point[][]
 {
     let track: Phaser.Geom.Point[] = [];
