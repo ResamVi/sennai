@@ -18,6 +18,10 @@ func main() {
 		game.ServeWs(l, w, r)
 	})
 
+	http.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("Hello, I'm up!"))
+	})
+
 	log.Println("Starting on Port :7999")
 	log.Fatal(http.ListenAndServe(":7999", nil))
 }
