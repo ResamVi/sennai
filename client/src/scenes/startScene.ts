@@ -13,13 +13,17 @@ export default class StartScene extends Phaser.Scene
     {
         this.load.bitmapFont('title', ['assets/font/title_0.png'], 'assets/font/title.fnt');
         this.load.image('logo', 'assets/logo.png');
+        this.load.audio('menu', 'assets/menu.mp3');
     }
 
     create ()
     {   
+        let music = this.sound.add('menu', {volume: 0.05, loop: true});
+        music.play();
+
         this.add.text(1280/2-130, 720/2+20, 'Enter Name', { color : '#0f0', fontSize: '32px' }).setInteractive();
 
-        let startText = this.add.text(1280/2-80, 720/2+200, 'Start', { color: '#0f0', fontSize: '32px'  })
+        let startText = this.add.text(1280/2-80, 720/2+150, 'Start', { color: '#0f0', fontSize: '32px'}) // TODO: Center properly
             .setInteractive()
             .on('pointerover', () => startText.setStyle({ color: '#ff0'}))
             .on('pointerout', () => startText.setStyle({ fill: '#0f0' }))

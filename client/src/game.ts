@@ -13,7 +13,7 @@ const config: Phaser.Types.Core.GameConfig = {
     width: 1280,
     height: 720
   },
-  scene: [StartScene, MainScene],
+  scene: [MainScene, StartScene],
   seed: ["Wow"],
   physics: {
     default: 'matter',
@@ -31,8 +31,10 @@ const config: Phaser.Types.Core.GameConfig = {
         key: 'rexInputTextPlugin',
         plugin: InputTextPlugin,
         start: true
-    },
-    ]
+    }]
+  },
+  audio: {
+    disableWebAudio: true
   }
 }
 

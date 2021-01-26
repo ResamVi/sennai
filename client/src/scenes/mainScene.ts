@@ -15,7 +15,7 @@ export default class MainScene extends Phaser.Scene
     private inner:          Phaser.Geom.Point[] = [];
     private outer:          Phaser.Geom.Point[] = [];
 
-    private name: string = 'Schumacher';
+    private name: string;
 
     private generation_count: number = 0;
 
@@ -24,9 +24,9 @@ export default class MainScene extends Phaser.Scene
     private frames: number = 0;
 
     private socket: WebSocket;
-
+    
     // Debug
-    zoom = 0.18;
+    zoom = 0.3;
     graphics:       Phaser.GameObjects.Graphics;
     circle:         Phaser.Geom.Circle;
     recording:      Array<any> = [];
@@ -47,7 +47,6 @@ export default class MainScene extends Phaser.Scene
 
     preload ()
     {
-        // TODO: Put into dedicated scene for loading
         this.load.image('car', 'assets/car.png');
         this.load.image('dot', 'assets/dot.png');
     }
@@ -59,7 +58,9 @@ export default class MainScene extends Phaser.Scene
         
         this.input.on('wheel', (a, b, c, deltaY) => {
             this.zoom -= 0.0001 * deltaY;
+            this.cameras.main.setZoom(this.zoom);
         });
+        
 
         this.input.keyboard.on('keydown-R', () => {
             [this.track, this.inner, this.outer] = generateTrack(Phaser.Math.RND);
@@ -67,10 +68,9 @@ export default class MainScene extends Phaser.Scene
 
         this.input.keyboard.on('keydown-B', () => {
             console.log(this.cars[0].object.x, this.cars[0].object.y);
-            //console.log(JSON.stringify(this.recording));
         });
 
-        this.cursors = this.input.keyboard.createCursorKeys(); 
+        this.cursors = this.input.keyboard.createCursorKeys();
         
         this.dot    = this.matter.add.image(200, 200, 'dot');
         
@@ -80,11 +80,12 @@ export default class MainScene extends Phaser.Scene
         this.graphics = this.add.graphics({ lineStyle: { width: 2, color: 0xff0000 }, fillStyle: { color: 0x00ff00 } },);
         
         [this.track, this.inner, this.outer] = generateTrack(Phaser.Math.RND);
+        
+        this.cameras.main.setZoom(this.zoom);
     }
     
     update(time, delta)
     {
-        this.cameras.main.setZoom(this.zoom);
         this.graphics.clear();
 
         // Player Controls
@@ -188,7 +189,7 @@ export default class MainScene extends Phaser.Scene
         this.id = initPackage.id;
         
         for(let car of initPackage.cars)
-            this.cars.push(new Car(this, this.track, car.id, car.x, car.y, car.rotation))
+            this.cars.push(new Car(this, this.track, car.id, car.x, car.y, car.rotation, this.name)); // TODO: Get Name
         
         this.cameras.main.startFollow(this.cars[this.id].object, false);
     }
@@ -211,7 +212,7 @@ export default class MainScene extends Phaser.Scene
         if(car.id === this.id)
             return
 
-        this.cars.push(new Car(this, this.track, car.id, car.x, car.y, car.rotation));
+        this.cars.push(new Car(this, this.track, car.id, car.x, car.y, car.rotation, "")); // TODO: Get Name
     }
 
     playerLeft(message)

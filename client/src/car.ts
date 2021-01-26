@@ -33,10 +33,11 @@ export class Car // extend matter.image
     private readonly RATES          = [4,  4,  4,  4, 4, 3, 2, 2, 1, 1]; // How fast we can steer to one direction
     private readonly RANGES         = [10, 10, 10, 5, 5, 3, 2, 2, 1, 1]; // How far we can steer in one direction
     
-    // Publicly accessed
-    private car: Phaser.Physics.Matter.Image;
+    // Public
+    public index:      number;
     
     // Private
+    private car: Phaser.Physics.Matter.Image;
     private front_wheel: Phaser.Math.Vector2;
     private rear_wheel: Phaser.Math.Vector2;
     
@@ -48,20 +49,17 @@ export class Car // extend matter.image
     private acceleration: number    = 0;
     private steer_angle: number     = 0;
 
-    
     private progress: Set<Phaser.Geom.Point> = new Set();
     private last_progress: number;
 
-    public index:      number;
-
-    // Debug
+    private name: string;
     private text:       Phaser.GameObjects.Text;
-    
 
-    constructor(scene: Phaser.Scene, track: Phaser.Geom.Point[], index: number, x: number, y: number, rotation: number)
+    constructor(scene: Phaser.Scene, track: Phaser.Geom.Point[], index: number, x: number, y: number, rotation: number, name: string)
     {
         this.track = track;
         this.index = index;
+        this.name = name;
 
         // Put Player on track and point him in right direction
         this.car = scene.matter.add.image(x, y, 'car');
@@ -71,7 +69,7 @@ export class Car // extend matter.image
         this.circle = new Phaser.Geom.Circle(this.car.x, this.car.y, TRACK_WIDTH + 50);
 
         // Display car info
-        this.text = scene.add.text(this.car.x, this.car.y, '', { font: '128px Courier', color: '#00ff00' });
+        this.text = scene.add.text(this.car.x, this.car.y, this.name, { font: '64px Courier', color: '#ffffff' }).setOrigin(0.5);
         this.text.setScrollFactor(1);
     }
 
@@ -87,7 +85,7 @@ export class Car // extend matter.image
         this.physics(delta);
         this.track_progress(frames); // TODO: Rename to out of bounds
         
-        //this.info(graphics);
+        this.drawName(graphics);
     }
 
     get object(): Phaser.Physics.Matter.Image
@@ -196,10 +194,9 @@ export class Car // extend matter.image
         //    this._stopped = true;
     }
 
-    private info(graphics: Phaser.GameObjects.Graphics)
+    private drawName(graphics: Phaser.GameObjects.Graphics)
     {
-        this.text.setPosition(this.car.x, this.car.y);
-        //this.text.setText(this.index.toString() + "|" + this.fitness + '%');
+        this.text.setPosition(this.car.x, this.car.y-100);
 
         // this.graphics.strokeCircle(this.cars.object.x, this.cars.object.y, TRACK_WIDTH + 50);
     }
