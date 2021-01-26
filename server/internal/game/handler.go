@@ -16,7 +16,7 @@ var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
 	CheckOrigin: func(r *http.Request) bool {
-		return r.Host == "localhost:7999" || r.Host == "game.resamvi.io"
+		return r.Host == "localhost:7999" || r.Host == "online.resamvi.io"
 	},
 }
 

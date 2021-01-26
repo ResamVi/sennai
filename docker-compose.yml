@@ -5,7 +5,7 @@ services:
     build: "client/."
     container_name: "sennai-client"
     ports:
-      - '5959:5959'
+      - '5959:80'
 
   sennai-server:
     build: server/.
