@@ -4,15 +4,11 @@ services:
   sennai-client:
     build: "client/."
     container_name: "sennai-client"
-    env_file:
-      - .env
     ports:
       - '5959:5959'
 
   sennai-server:
     build: server/.
     container_name: "sennai-server"
-    env_file:
-      - .env
     ports:
       - '7999:7999'
