@@ -33,6 +33,7 @@
     "copy-webpack-plugin": "^7.0.0",
     "html-webpack-plugin": "^4.5.0",
     "javascript-obfuscator": "^2.9.5",
+    "phaser3-rex-plugins": "^1.1.39",
     "rimraf": "^3.0.2",
     "serve": "^11.3.2",
     "ts-loader": "^8.0.12",

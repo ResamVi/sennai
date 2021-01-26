@@ -1,4 +1,6 @@
 import 'phaser';
+import StartScene from './scenes/startScene';
+import InputTextPlugin from 'phaser3-rex-plugins/plugins/inputtext-plugin.js';
 import MainScene from './scenes/mainScene';
 
 const config: Phaser.Types.Core.GameConfig = {
@@ -11,7 +13,7 @@ const config: Phaser.Types.Core.GameConfig = {
     width: 1280,
     height: 720
   },
-  scene: [MainScene],
+  scene: [StartScene, MainScene],
   seed: ["Wow"],
   physics: {
     default: 'matter',
@@ -20,6 +22,17 @@ const config: Phaser.Types.Core.GameConfig = {
         debug: true,
         gravity: { x: 0, y: 0 }
     }
+  },
+  dom: {
+    createContainer: true
+  },
+  plugins: {
+    global: [{
+        key: 'rexInputTextPlugin',
+        plugin: InputTextPlugin,
+        start: true
+    },
+    ]
   }
 }
 

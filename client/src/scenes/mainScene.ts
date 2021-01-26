@@ -35,7 +35,7 @@ export default class MainScene extends Phaser.Scene
     
     constructor ()
     {
-        super('SENNAI');
+        super('MainScene');
     }
 
     preload ()
