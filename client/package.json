@@ -1,6 +1,6 @@
 {
   "name": "senn-ai",
-  "version": "0.1",
+  "version": "0.1.0",
   "description": "Online arcade IO racer",
   "homepage": "https://race.resamvi.io",
   "main": "index.js",
