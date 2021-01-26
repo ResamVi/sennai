@@ -1,11 +1,10 @@
 const path = require('path')
 const CopyWebpackPlugin = require('copy-webpack-plugin')
 const HtmlWebpackPlugin = require('html-webpack-plugin')
-const { InjectManifest } = require('workbox-webpack-plugin')
 const webpack = require('webpack')
 
 module.exports = {
-  entry: ['./src/scripts/game.ts'],
+  entry: ['./src/game.ts'],
   output: {
     path: path.resolve(__dirname, '../dist'),
     filename: '[name].bundle.js',
@@ -31,11 +30,11 @@ module.exports = {
   },
   plugins: [
     new webpack.ProgressPlugin(),
-    new HtmlWebpackPlugin({ gameName: 'SENN-AI', template: 'src/index.html' }),
+    new HtmlWebpackPlugin({ gameName: 'SENN-AI', template: 'src/html/index.html' }),
     new CopyWebpackPlugin({
       patterns: [
         { from: 'src/assets', to: 'assets' },
-        { from: 'src/favicon.ico', to: '' }
+        { from: 'src/assets/favicon.ico', to: '' }
       ]
     })
   ]
