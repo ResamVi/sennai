@@ -7,7 +7,7 @@ services:
     env_file:
       - .env
     ports:
-      - '80:80'
+      - '5959:5959'
 
   sennai-server:
     build: server/.

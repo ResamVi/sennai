@@ -2,6 +2,8 @@ import { Car, Control } from './car';
 import { generateTrack } from './track';
 import { typeOf, contentOf } from './util';
 
+const ENDPOINT = 'wss://online.resamvi.io/ws';
+
 export default class MainScene extends Phaser.Scene
 {
     private dot:        Phaser.Physics.Matter.Image;
@@ -45,7 +47,7 @@ export default class MainScene extends Phaser.Scene
 
     create ()
     {   
-        this.socket = new WebSocket('ws://localhost:7999/ws');
+        this.socket = new WebSocket(ENDPOINT);
         this.socket.onmessage = ({data}) => this.parseData(data);
         
         this.input.on('wheel', (a, b, c, deltaY) => {
