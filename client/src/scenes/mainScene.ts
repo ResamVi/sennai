@@ -15,6 +15,8 @@ export default class MainScene extends Phaser.Scene
     private inner:          Phaser.Geom.Point[] = [];
     private outer:          Phaser.Geom.Point[] = [];
 
+    private name: string = 'Schumacher';
+
     private generation_count: number = 0;
 
     private id: number = 0;
@@ -36,6 +38,11 @@ export default class MainScene extends Phaser.Scene
     constructor ()
     {
         super('MainScene');
+    }
+
+    init(menuInput)
+    {
+        this.name = menuInput.name;
     }
 
     preload ()

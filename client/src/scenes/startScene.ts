@@ -2,6 +2,8 @@ import MainScene from './mainScene';
 
 export default class StartScene extends Phaser.Scene
 {
+    private name: string = 'Schumacher';
+
     constructor ()
     {
         super('StartScene');
@@ -21,15 +23,14 @@ export default class StartScene extends Phaser.Scene
             .setInteractive()
             .on('pointerover', () => startText.setStyle({ color: '#ff0'}))
             .on('pointerout', () => startText.setStyle({ fill: '#0f0' }))
-            .on('pointerup', () => this.scene.start('MainScene'));
-
+            .on('pointerup', () => this.scene.start('MainScene', {name: this.name}));
         
         (this.add as any).rexInputText(1280/2+30, 720/2+100, 10, 10, {
             type: 'textarea',
-            text: 'Schumacher',
+            text: this.name,
             fontSize: '32px',
             maxLength: '16',
-        }).resize(300, 50);
+        }).resize(300, 50).on('textchange', (inputText) => this.name = inputText.text);
 
         this.add.image(615, 270, 'logo');
         this.add.bitmapText(540, 310, 'title', 'SENNAI', 32);
