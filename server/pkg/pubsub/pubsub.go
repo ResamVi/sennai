@@ -1,3 +1,4 @@
+// Package pubsub implements the publisher-subscriber pattern
 package pubsub
 
 import (
@@ -7,7 +8,7 @@ import (
 // Event is sent to every subscriber
 // (i.e. having a reference to Subscription) when something is published
 type Event struct {
-	Typ     string
+	Typ     string // game's protocol-specific identifier of what the payload entails
 	Payload interface{}
 }
 

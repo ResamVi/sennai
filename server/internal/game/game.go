@@ -1,3 +1,5 @@
+// Package game contains the rules and entities of the domain
+// The domain of this game is an arcade racing sim
 package game
 
 import (
@@ -6,21 +8,22 @@ import (
 	"sync"
 	"time"
 
+	"gitlab.com/resamvi/sennai/internal/track"
 	"gitlab.com/resamvi/sennai/pkg/pubsub"
 )
 
-const buffersize = 10
+const buffersize = 50
 
 // used to categorize data sent between client and server
 // appended to messages to supply context
 const (
-	noevent     = ""
 	initevent   = "init"
 	updateevent = "update"
 	joinevent   = "join"
 	leaveevent  = "leave"
 
 	inputevent = "input"
+	trackevent = "newtrack"
 )
 
 // Game maintains a reference to all connected players
@@ -28,6 +31,7 @@ type Game struct {
 	clients sync.Map
 	clock   *time.Ticker
 	events  *pubsub.Pubsub
+	track   track.Track
 }
 
 // New creates a new game
@@ -36,6 +40,7 @@ func New() *Game {
 		clients: sync.Map{},
 		clock:   time.NewTicker(30 * time.Millisecond),
 		events:  pubsub.New(),
+		track:   track.Generate(),
 	}
 }
 
@@ -59,7 +64,6 @@ func (g *Game) Update() {
 
 		return true
 	})
-	//fmt.Printf("%v\n", g.Clients())
 }
 
 // Connect registers a new connection to the game.
@@ -112,6 +116,15 @@ func (g *Game) SetPlayerInput(input Input, playerID int) {
 	new.input = input
 
 	g.clients.Store(playerID, new)
+}
+
+func (g Game) Track() track.Track {
+	return g.track
+}
+
+// ChangeTrack changes the track of the game
+func (g *Game) ChangeTrack() {
+	g.track = track.Generate()
 }
 
 // Clients returns the currently connected clients as a slice

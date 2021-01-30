@@ -4,6 +4,12 @@ import { typeOf, contentOf } from '../util';
 
 const ENDPOINT = 'ws://localhost:7999/ws';
 
+// TODO: Reuse for best list
+//let info = ['time: ' + Math.floor(time), 'Generation: ' + this.generation_count];
+//this.text.setText(info);
+//for(let i = 0; i < Math.min(best.length, 30); i++)
+        //    info.push(`${this.pad(i+1)} #${this.pad(best[i].index)} | ${best[i].fitness}`);
+
 export default class MainScene extends Phaser.Scene
 {
     private dot:        Phaser.Physics.Matter.Image;
@@ -12,6 +18,8 @@ export default class MainScene extends Phaser.Scene
     
     private cars:           Car[]               = [];
     private track:          Phaser.Geom.Point[] = [];
+    private hull:           Phaser.Geom.Point[] = [];
+    
     private inner:          Phaser.Geom.Point[] = [];
     private outer:          Phaser.Geom.Point[] = [];
 
@@ -26,7 +34,7 @@ export default class MainScene extends Phaser.Scene
     private socket: WebSocket;
     
     // Debug
-    zoom = 0.3;
+    zoom = 0.05; // 0.3;
     graphics:       Phaser.GameObjects.Graphics;
     circle:         Phaser.Geom.Circle;
     recording:      Array<any> = [];
@@ -60,10 +68,14 @@ export default class MainScene extends Phaser.Scene
             this.zoom -= 0.0001 * deltaY;
             this.cameras.main.setZoom(this.zoom);
         });
-        
+
+        this.input.on('pointerdown', (pointer) => {
+            console.log(this.cars[0].object.x + ", " + this.cars[0].object.y);
+        });
 
         this.input.keyboard.on('keydown-R', () => {
-            [this.track, this.inner, this.outer] = generateTrack(Phaser.Math.RND);
+            //[this.track, this.inner, this.outer] = generateTrack(Phaser.Math.RND);
+            this.send('newtrack', {});
         });
 
         this.input.keyboard.on('keydown-B', () => {
@@ -94,8 +106,8 @@ export default class MainScene extends Phaser.Scene
         for(let car of this.cars)
             car.update(this.frames, delta, this.graphics);
 
-        this.drawTrack();
-        this.debug(time);
+        //this.drawTrack();
+        this.debug();
 
         this.frames += 1;
     }
@@ -172,6 +184,10 @@ export default class MainScene extends Phaser.Scene
                 this.updateGame(unpacked);
                 break;
 
+            case "track":
+                this.updateTrack(unpacked);
+                break;
+            
             case "join":
                 this.playerJoined(unpacked);
                 break;
@@ -182,12 +198,26 @@ export default class MainScene extends Phaser.Scene
         }
     }
 
+    space1;
+    space2;
+    space3;
+    sharp;
+    smooth;
+
     initGame(message)
     {
         let initPackage = JSON.parse(message);
 
-        this.id = initPackage.id;
+        this.id     = initPackage.id;        
+        this.track  = initPackage.track;
         
+        this.hull       = initPackage.hull;
+        this.space1     = initPackage.space1;
+        this.space2     = initPackage.space2;
+        this.space3     = initPackage.space3;
+        this.sharp      = initPackage.sharp;
+        this.smooth     = initPackage.smooth;
+
         for(let car of initPackage.cars)
             this.cars.push(new Car(this, this.track, car.id, car.x, car.y, car.rotation, this.name)); // TODO: Get Name
         
@@ -204,6 +234,19 @@ export default class MainScene extends Phaser.Scene
             this.cars[car.id].object.y          = car.y;
             this.cars[car.id].object.rotation   = car.rotation;
         }
+    }
+
+    updateTrack(message)
+    {
+        let data = JSON.parse(message);
+
+        this.track      = data.track;
+        this.hull       = data.hull;
+        this.space1     = data.space1;
+        this.space2     = data.space2;
+        this.space3     = data.space3;
+        this.sharp      = data.sharp;
+        this.smooth     = data.smooth;
     }
 
     playerJoined(message)
@@ -223,25 +266,64 @@ export default class MainScene extends Phaser.Scene
         this.cars = this.cars.filter((car) => {car.index != id});
     }
 
-    debug(time)
+    debug()
     {
         
         // Rectangle of generated points
         this.graphics.lineStyle(5, 0x0000ff);
         //this.graphics.strokeRect(0, 0, this.MAX_WIDTH, this.MAX_HEIGHT);
 
-        // Track Corners
-        this.graphics.fillStyle(0x00ff00);
-        for(let p of this.track)
-            this.graphics.fillCircle(p.x, p.y, 20);
+        // Track cloud
+        /*this.graphics.fillStyle(0x00ff00);
+        if(this.track.length != 0)
+        {
+            for(let p of this.track)
+                this.graphics.fillCircle(p.x, p.y, 20);
+        }*/
 
-        // TODO: Reuse for best list
-        let info = ['time: ' + Math.floor(time), 'Generation: ' + this.generation_count];
-        
-        //for(let i = 0; i < Math.min(best.length, 30); i++)
-        //    info.push(`${this.pad(i+1)} #${this.pad(best[i].index)} | ${best[i].fitness}`);
+        // Hull
+        /*if(this.hull.length != 0)
+        {
+            this.graphics.lineStyle(2, 0x00ff00)
+            this.graphics.strokePoints(this.hull);
 
-        this.text.setText(info);
+            this.graphics.fillStyle(0x00ff00);
+            for(let p of this.hull)
+                this.graphics.fillCircle(p.x, p.y, 20);
+        }*/
+
+        // Space3
+        /*if(this.space3 != undefined)
+        {
+            this.graphics.lineStyle(2, 0x0000ff)
+            this.graphics.strokePoints(this.space3);
+            
+            this.graphics.fillStyle(0x00ff00);
+            for(let p of this.space3)
+                this.graphics.fillCircle(p.x, p.y, 20);
+        }*/
+
+        // Sharp
+        if(this.sharp != undefined)
+        {
+            this.graphics.lineStyle(2, 0xff0000)
+            this.graphics.strokePoints(this.sharp);
+            
+            this.graphics.fillStyle(0xff0000);
+            for(let p of this.sharp)
+                this.graphics.fillCircle(p.x, p.y, 20);
+        }
+
+        // smooth
+        if(this.smooth != undefined)
+        {
+            this.graphics.lineStyle(2, 0xffff00)
+            this.graphics.strokePoints(this.smooth);
+
+            this.graphics.fillStyle(0xffff00);
+            for(let p of this.smooth)
+                this.graphics.fillCircle(p.x, p.y, 20);
+        }
     }
 
     /**

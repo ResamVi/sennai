@@ -189,7 +189,7 @@ function makeHull<P extends Point>(points: Array<P>): Array<P>
 {
 	let newPoints: Array<P> = points.slice();
 	newPoints.sort(POINT_COMPARATOR);
-	let result = makeHullPresorted(newPoints);
+    let result = makeHullPresorted(newPoints);
 	result.push(result[0]);
 	return result;
 }
