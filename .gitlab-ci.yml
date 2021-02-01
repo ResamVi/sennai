@@ -5,11 +5,10 @@ image:
 services:
   - docker:dind
 
-build_frontend:
+build:
   stage: build
   script:
-    - cd client
-    - yarn
-    - yarn build
-    - rm -rf /var/www/race.resamvi.io
-    - mv dist /var/www/race.resamvi.io
+    - screen -ls
+    - docker-compose build --no-cache
+    - screen -X -S sennai quit
+    - screen -S sennai -dm docker-compose up 
