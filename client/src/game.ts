@@ -13,7 +13,7 @@ const config: Phaser.Types.Core.GameConfig = {
     width: 1280,
     height: 720
   },
-  scene: [MainScene, StartScene],
+  scene: [StartScene, MainScene],
   seed: ["Wow"],
   physics: {
     default: 'matter',

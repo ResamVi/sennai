@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
-	"strings"
 
 	"github.com/gorilla/websocket"
+	"gitlab.com/resamvi/sennai/internal/protocol"
 	"gitlab.com/resamvi/sennai/internal/track"
 	"gitlab.com/resamvi/sennai/pkg/pubsub"
 )
@@ -36,55 +36,16 @@ func ServeWs(g *Game, w http.ResponseWriter, r *http.Request) {
 	defer g.Disconnect(playerID, sub)
 
 	// Send init/setup data to client
-	var msg []byte
+	msg := toJSON("cars", g.Clients())
+	msg = appendKey("id", playerID, msg)
 
-	msg, err = toJSON("cars", g.Clients(), msg)
-	if err != nil {
-		log.Fatalln(err)
-	}
+	t := track.New() // TODO: debug
+	msg = appendKey("track", t, msg)
+	msg = appendKey("hull", t.Hull(), msg)
+	msg = appendKey("sharp", t.Hull().SpaceApart().SpaceApart().SpaceApart().SharpenCorners(), msg)
+	msg = appendKey("smooth", t.Hull().SpaceApart().SpaceApart().SpaceApart().SharpenCorners().Smoothen(), msg)
 
-	msg, err = appendKey("id", playerID, msg)
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	t := track.New()
-	msg, err = appendKey("track", t, msg)
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	msg, err = appendKey("hull", t.Hull(), msg)
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	msg, err = appendKey("space1", t.Hull().SpaceApart(), msg)
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	msg, err = appendKey("space2", t.Hull().SpaceApart().SpaceApart(), msg)
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	msg, err = appendKey("space3", t.Hull().SpaceApart().SpaceApart().SpaceApart(), msg)
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	msg, err = appendKey("sharp", t.Hull().SpaceApart().SpaceApart().SpaceApart().SharpenCorners(), msg)
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	msg, err = appendKey("smooth", t.Hull().SpaceApart().SpaceApart().SpaceApart().SharpenCorners().Smoothen(), msg)
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	err = send(conn, initevent, string(msg))
+	err = protocol.Send(conn, protocol.INIT, msg)
 	if err != nil {
 		log.Println(err)
 		return
@@ -99,16 +60,15 @@ func ServeWs(g *Game, w http.ResponseWriter, r *http.Request) {
 // supplied subscription) to the websocket connection to be sent to the client
 func write(g *Game, sub *pubsub.Subscription, conn *websocket.Conn) {
 	for {
-		msg := new(bytes.Buffer)
-
 		event := <-sub.Ch
 
+		msg := new(bytes.Buffer)
 		err := json.NewEncoder(msg).Encode(event.Payload)
 		if err != nil {
 			log.Fatalln(err)
 		}
 
-		err = send(conn, event.Typ, msg.String())
+		err = protocol.Send(conn, event.Typ, msg.Bytes())
 		if err != nil {
 			log.Println(err)
 			break
@@ -126,104 +86,75 @@ func read(g *Game, conn *websocket.Conn, playerID int) {
 			break
 		}
 
-		slice := strings.Split(string(message), "|")
-		event, payload := slice[0], slice[1]
+		prefix, payload := protocol.Parse(message)
 
-		switch event { // TODO: We can do this parsing a bit better. Read compiler thingy
-		case inputevent:
-			parseInput(g, payload, playerID)
-		case trackevent: // TODO: Remove. Do not give players the ability to change the map
+		switch prefix {
+		case protocol.INPUT:
+			var input Input
+
+			err := json.Unmarshal(payload, &input)
+			if err != nil {
+				log.Fatalln(err)
+			}
+
+			g.SetPlayerInput(input, playerID)
+		case protocol.PLEASE: // TODO: Remove. Do not give players the ability to change the map
 			//g.ChangeTrack()
 
 			t := track.New()
 
-			var msg []byte
-			msg, err = toJSON("track", t, msg)
-			if err != nil {
-				log.Fatalln(err)
-			}
+			msg := toJSON("track", t)
+			msg = appendKey("hull", t.Hull(), msg)
+			msg = appendKey("sharp", t.Hull().SpaceApart().SpaceApart().SpaceApart().SharpenCorners(), msg)
+			msg = appendKey("smooth", t.Hull().SpaceApart().SpaceApart().SpaceApart().SharpenCorners().Smoothen(), msg)
 
-			msg, err = appendKey("hull", t.Hull(), msg)
-			if err != nil {
-				log.Fatalln(err)
-			}
-
-			msg, err = appendKey("space1", t.Hull().SpaceApart(), msg)
-			if err != nil {
-				log.Fatalln(err)
-			}
-
-			msg, err = appendKey("space2", t.Hull().SpaceApart().SpaceApart(), msg)
-			if err != nil {
-				log.Fatalln(err)
-			}
-
-			msg, err = appendKey("space3", t.Hull().SpaceApart().SpaceApart().SpaceApart(), msg)
-			if err != nil {
-				log.Fatalln(err)
-			}
-
-			msg, err = appendKey("sharp", t.Hull().SpaceApart().SpaceApart().SpaceApart().SharpenCorners(), msg)
-			if err != nil {
-				log.Fatalln(err)
-			}
-
-			msg, err = appendKey("smooth", t.Hull().SpaceApart().SpaceApart().SpaceApart().SharpenCorners().Smoothen(), msg)
-			if err != nil {
-				log.Fatalln(err)
-			}
-
-			err = send(conn, trackevent, string(msg))
+			err = protocol.Send(conn, protocol.TRACK, msg)
 			if err != nil {
 				log.Println(err)
 				return
 			}
+		case protocol.HELLO:
+			var name string
 
-			send(conn, "track", string(msg))
+			err := json.Unmarshal(payload, &name)
+			if err != nil {
+				log.Fatalln(err)
+			}
+
+			g.SetPlayerName(name, playerID)
 		}
 
 		log.Printf("RECEIVED: %s\n", message)
 	}
 }
 
-func parseInput(g *Game, payload string, playerID int) {
-
-	var input Input
-
-	err := json.Unmarshal([]byte(payload), &input)
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	g.SetPlayerInput(input, playerID)
-}
-
-// helper function to send messages according to the protocol
-// messages according to protocol are structured as `<eventtype>|<data>`
-//
-// an error may be returned because a websocket connection
-// closed which needs to be handled by the caller
-func send(conn *websocket.Conn, typ string, str string) error {
-	return conn.WriteMessage(websocket.TextMessage, []byte(typ+"|"+str))
-}
-
 // toJSON creates a JSON object with the provided field as key and item as value
-func toJSON(field string, item interface{}, data []byte) ([]byte, error) {
+func toJSON(field string, item interface{}) []byte {
 	m := make(map[string]interface{})
 	m[field] = item
 
-	return json.Marshal(m)
+	j, err := json.Marshal(m)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return j
 }
 
 // appendKey adds a key to the provided json object `data` with `item as value
-func appendKey(field string, item interface{}, data []byte) ([]byte, error) {
+func appendKey(field string, item interface{}, data []byte) []byte {
 	var m map[string]interface{}
 
 	err := json.Unmarshal(data, &m)
 	if err != nil {
-		return nil, err
+		log.Fatal(err)
 	}
 	m[field] = item
 
-	return json.Marshal(m)
+	j, err := json.Marshal(m)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return j
 }

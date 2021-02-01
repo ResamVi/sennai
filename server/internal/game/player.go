@@ -12,10 +12,11 @@ type Input struct {
 
 // Player represents a connected player
 type Player struct {
-	ID       int `json:"id"`
-	X        int `json:"x"`
-	Y        int `json:"y"`
-	Rotation int `json:"rotation"`
+	Name     string `json:"name"`
+	ID       int    `json:"id"`
+	X        int    `json:"x"`
+	Y        int    `json:"y"`
+	Rotation int    `json:"rotation"`
 	input    Input
 }
 
@@ -45,5 +46,5 @@ func (p *Player) Update() {
 }
 
 func (p Player) String() string {
-	return fmt.Sprintf("[%d: (%d, %d) %d°", p.ID, p.X, p.Y, p.Rotation)
+	return fmt.Sprintf("[%d.: %s - (%d, %d) %d°", p.ID, p.Name, p.X, p.Y, p.Rotation)
 }

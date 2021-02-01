@@ -190,7 +190,7 @@ func (t Track) SpaceApart() Track {
 
 // SharpenCorners makes the track more interesting with sharper corners
 func (t Track) SharpenCorners() Track {
-	modified := make(Track, 2*len(t))
+	modified := make(Track, 2*len(t)-2)
 
 	for i := 0; i < len(t)-1; i++ {
 		b := rand.Float64()
@@ -206,8 +206,8 @@ func (t Track) SharpenCorners() Track {
 		modified[2*i] = t[i]
 		modified[2*i+1] = midpoint
 	}
-
 	modified.Push(modified[0])
+
 	return modified
 }
 
