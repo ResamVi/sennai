@@ -22,108 +22,35 @@ const (
 	trackwidth      = 400
 )
 
-// Track stores the outline of a track
-type Track []math.Point // TODO: should be struct
-
-// String returns a conscise representation of all points in the track
-func (t Track) String() string {
-	str := "["
-	for _, p := range t {
-		str += fmt.Sprintf("(%.1f, %.1f), ", p.X, p.Y)
-	}
-
-	return str[:len(str)-2] + "]"
+// Track repesents the layout and stores the outline and bounds of a track
+type Track struct {
+	Outer Outline `json:"outer"`
+	Track Outline `json:"track"`
+	Inner Outline `json:"inner"`
 }
 
-// Equal checks for equality (sensitive to order of points)
-func (t Track) Equal(trk Track) bool {
-	if len(t) != len(trk) {
-		return false
-	}
-
-	for i := 0; i < len(t); i++ {
-		if t[i].X != trk[i].X || t[i].Y != trk[i].Y {
-			return false
-		}
-	}
-
-	return true
-}
-
-// Push appends a point to the track
-func (t *Track) Push(p math.Point) {
-	*t = append(*t, p)
-}
-
-// Pop removes and returns the last point of the track
-func (t *Track) Pop() math.Point {
-	point := (*t)[len(*t)-1]
-	*t = (*t)[:len(*t)-1]
-	return point
-}
-
-// Remove splices the slice and keeps the order
-func (t *Track) Remove(i int) {
-	*t = append((*t)[:i], (*t)[i+1:]...)
-}
-
-// Len is the number of elements in the collection.
-// Implementing sort.Interface
-func (t Track) Len() int {
-	return len(t)
-}
-
-// Less reports whether the element with
-// index i should sort before the element with index j.
-// Implementing sort.Interface
-func (t Track) Less(i, j int) bool {
-	a, b := t[i], t[j]
-
-	if a.X < b.X {
-		return true
-	}
-
-	if a.X > b.X {
-		return false
-	}
-
-	if a.Y < b.Y {
-		return true
-	}
-
-	if a.Y > b.Y {
-		return false
-	}
-
-	return false
-}
-
-// Swap swaps the elements with indexes i and j.
-// Implementing sort.Interface
-func (t Track) Swap(i, j int) {
-	t[i], t[j] = t[j], t[i]
-}
+// Outline is a chain of points to create a line
+type Outline []math.Point // TODO: should be struct
 
 // New creates a new track
-// returns the inner bounds, center line, and outer bounds of the track
-func New() (Track, Track, Track) {
-	track := Track{}
+func New() Track {
+	outline := Outline{}
 	for i := 0; i < pointcount; i++ {
 		p := math.Point{X: rand.Float64() * maxwidth, Y: rand.Float64() * maxheight}
-		track.Push(p)
+		outline.Push(p)
 	}
 
-	interm := track.Hull().
+	track := outline.Hull().
 		SpaceApart().
 		SpaceApart().
 		SpaceApart().
 		SharpenCorners().
 		Smoothen()
 
-	inner, outer := interm.Inner(), interm.Outer()
+	inner, outer := track.Inner(), track.Outer()
 
 	// Remove interfering points
-	for _, p1 := range interm {
+	for _, p1 := range track {
 
 		for k := 0; k < len(inner); k++ {
 			p2 := inner[k]
@@ -150,15 +77,94 @@ func New() (Track, Track, Track) {
 		}
 	}
 
-	return inner, interm, outer
+	return Track{Inner: inner, Track: track, Outer: outer}
 }
 
-// Hull returns the convex hull: the minimal amount of points that encompass every point of the track inside it
-func (t Track) Hull() Track {
-	sort.Sort(t)
+// String returns a conscise representation of all points in the track
+func (ol Outline) String() string {
+	str := "["
+	for _, p := range ol {
+		str += fmt.Sprintf("(%.1f, %.1f), ", p.X, p.Y)
+	}
 
-	upper := Track{}
-	for _, point := range t {
+	return str[:len(str)-2] + "]"
+}
+
+// Equal checks if two outlines are equal (sensitive to order of points)
+func (ol Outline) Equal(trk Outline) bool {
+	if len(ol) != len(trk) {
+		return false
+	}
+
+	for i := 0; i < len(ol); i++ {
+		if ol[i].X != trk[i].X || ol[i].Y != trk[i].Y {
+			return false
+		}
+	}
+
+	return true
+}
+
+// Push appends a point to the outline
+func (ol *Outline) Push(p math.Point) {
+	*ol = append(*ol, p)
+}
+
+// Pop removes and returns the last point of the outline
+func (ol *Outline) Pop() math.Point {
+	point := (*ol)[len(*ol)-1]
+	*ol = (*ol)[:len(*ol)-1]
+	return point
+}
+
+// Remove splices the slice and keeps the order
+func (ol *Outline) Remove(i int) {
+	*ol = append((*ol)[:i], (*ol)[i+1:]...)
+}
+
+// Len is the number of elements in the collection.
+// Implementing sort.Interface
+func (ol Outline) Len() int {
+	return len(ol)
+}
+
+// Less reports whether the element with
+// index i should sort before the element with index j.
+// Implementing sort.Interface
+func (ol Outline) Less(i, j int) bool {
+	a, b := ol[i], ol[j]
+
+	if a.X < b.X {
+		return true
+	}
+
+	if a.X > b.X {
+		return false
+	}
+
+	if a.Y < b.Y {
+		return true
+	}
+
+	if a.Y > b.Y {
+		return false
+	}
+
+	return false
+}
+
+// Swap swaps the elements with indexes i and j.
+// Implementing sort.Interface
+func (ol Outline) Swap(i, j int) {
+	ol[i], ol[j] = ol[j], ol[i]
+}
+
+// Hull returns the convex hull: the minimal amount of points whose outline encompass every other point
+func (ol Outline) Hull() Outline {
+	sort.Sort(ol)
+
+	upper := Outline{}
+	for _, point := range ol {
 
 		for len(upper) >= 2 {
 			u, v := upper[len(upper)-1], upper[len(upper)-2]
@@ -173,9 +179,9 @@ func (t Track) Hull() Track {
 	}
 	upper.Pop()
 
-	lower := Track{}
-	for i := len(t) - 1; i >= 0; i-- {
-		point := t[i]
+	lower := Outline{}
+	for i := len(ol) - 1; i >= 0; i-- {
+		point := ol[i]
 
 		for len(lower) >= 2 {
 			u, v := lower[len(lower)-1], lower[len(lower)-2]
@@ -194,12 +200,12 @@ func (t Track) Hull() Track {
 	return append(upper, lower...)
 }
 
-// SpaceApart returns a version of the track with every point spaced apart by atleast mindistance
-func (t Track) SpaceApart() Track {
-	modified := make(Track, 0)
+// SpaceApart returns a version of the outline with every point spaced apart by atleast mindistance
+func (ol Outline) SpaceApart() Outline {
+	modified := make(Outline, 0)
 
-	for _, p1 := range t {
-		for _, p2 := range t {
+	for _, p1 := range ol {
+		for _, p2 := range ol {
 
 			if p1 == p2 {
 				continue
@@ -222,11 +228,11 @@ func (t Track) SpaceApart() Track {
 	return modified
 }
 
-// SharpenCorners makes the track more interesting with sharper corners
-func (t Track) SharpenCorners() Track {
-	modified := make(Track, 2*len(t)-2)
+// SharpenCorners makes the outline more interesting (i.e. curvy) with sharper corners
+func (ol Outline) SharpenCorners() Outline {
+	modified := make(Outline, 2*len(ol)-2)
 
-	for i := 0; i < len(t)-1; i++ {
+	for i := 0; i < len(ol)-1; i++ {
 		b := rand.Float64()
 		displaceLength := math.Pow(b, difficulty) * maxdisplacement
 
@@ -234,10 +240,10 @@ func (t Track) SharpenCorners() Track {
 		displace.Rotate(rand.Intn(360))
 		displace.Scale(displaceLength)
 
-		midpoint := math.Interpolate(t[i], t[i+1], 0.5)
+		midpoint := math.Interpolate(ol[i], ol[i+1], 0.5)
 		midpoint.MoveBy(displace)
 
-		modified[2*i] = t[i]
+		modified[2*i] = ol[i]
 		modified[2*i+1] = midpoint
 	}
 	modified.Push(modified[0])
@@ -245,11 +251,11 @@ func (t Track) SharpenCorners() Track {
 	return modified
 }
 
-// Smoothen inserts more points between corners and interpolates between them
-func (t Track) Smoothen() Track {
-	xs, ys := t.xs(), t.ys()
+// Smoothen inserts more points between points and interpolates between them
+func (ol Outline) Smoothen() Outline {
+	xs, ys := ol.xs(), ol.ys()
 
-	modified := make(Track, 0)
+	modified := make(Outline, 0)
 	for f := 0.0; f <= 1; f += 0.005 {
 		x := math.CatmullRom(xs, f)
 		y := math.CatmullRom(ys, f)
@@ -259,32 +265,34 @@ func (t Track) Smoothen() Track {
 	return modified
 }
 
-// Inner returns the inner track side i.e.
+// Inner returns the inner track side i.e. a downscaled version
+// of the outline
 // ————————————————┑
 //                 │
 // ———— t ————┑    |
 //            |    │
 // —inner—┑   |    │
 //        │   |    │
-func (t Track) Inner() Track {
-	return t.bounds(1)
+func (ol Outline) Inner() Outline {
+	return ol.bounds(1)
 }
 
-// Outer returns the inner track side i.e.
+// Outer returns the outer track side i.e. a upscaled version
+// of the outline
 // ————outer———————┑
 //                 │
 // ———— t ————┑    |
 //            |    │
 // ———————┑   |    │
 //        │   |    │
-func (t Track) Outer() Track {
-	return t.bounds(-1)
+func (ol Outline) Outer() Outline {
+	return ol.bounds(-1)
 }
 
-func (t Track) bounds(sign int) Track {
-	modified := make(Track, 0)
-	for i := 0; i < len(t)-1; i++ {
-		from, to := t[i], t[i+1]
+func (ol Outline) bounds(sign int) Outline {
+	modified := make(Outline, 0)
+	for i := 0; i < len(ol)-1; i++ {
+		from, to := ol[i], ol[i+1]
 
 		direction := math.Vector{X: from.X - to.X, Y: from.Y - to.Y}
 		direction.Rotate(sign * 90)
@@ -300,18 +308,18 @@ func (t Track) bounds(sign int) Track {
 }
 
 // xs returns every point's x-value in a slice
-func (t Track) xs() []float64 {
+func (ol Outline) xs() []float64 {
 	result := make([]float64, 0)
-	for _, p := range t {
+	for _, p := range ol {
 		result = append(result, p.X)
 	}
 	return result
 }
 
 // xs returns every point's x-value in a slice
-func (t Track) ys() []float64 {
+func (ol Outline) ys() []float64 {
 	result := make([]float64, 0)
-	for _, p := range t {
+	for _, p := range ol {
 		result = append(result, p.Y)
 	}
 	return result

@@ -25,13 +25,11 @@ type Game struct {
 
 // New creates a new game
 func New() *Game {
-	_, t, _ := track.New()
-
 	return &Game{
 		players: sync.Map{},
 		clock:   time.NewTicker(30 * time.Millisecond),
 		events:  pubsub.New(),
-		track:   t,
+		track:   track.New(),
 	}
 }
 
@@ -132,7 +130,8 @@ func (g *Game) Track() track.Track {
 
 // ChangeTrack changes the track of the game
 func (g *Game) ChangeTrack() {
-	_, g.track, _ = track.New() // TODO:
+	g.track = track.New()
+	g.events.Publish(protocol.TRACK, g.track)
 }
 
 // Clients returns the currently connected clients as a slice

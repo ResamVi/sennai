@@ -9,32 +9,32 @@ import (
 func TestEquals(t *testing.T) {
 	var tests = []struct {
 		name string
-		trk1 Track
-		trk2 Track
+		trk1 Outline
+		trk2 Outline
 		want bool
 	}{
 		{
 			"Empty track",
-			Track{},
-			Track{},
+			Outline{},
+			Outline{},
 			true,
 		},
 		{
 			"Equal track",
-			Track{math.Point{X: 1, Y: 1}, math.Point{X: 3, Y: 3}},
-			Track{math.Point{X: 1, Y: 1}, math.Point{X: 3, Y: 3}},
+			Outline{math.Point{X: 1, Y: 1}, math.Point{X: 3, Y: 3}},
+			Outline{math.Point{X: 1, Y: 1}, math.Point{X: 3, Y: 3}},
 			true,
 		},
 		{
 			"Inequal track",
-			Track{math.Point{X: 1, Y: 1}, math.Point{X: 2, Y: 2}, math.Point{X: 3, Y: 3}},
-			Track{math.Point{X: 1, Y: 1}, math.Point{X: 3, Y: 3}},
+			Outline{math.Point{X: 1, Y: 1}, math.Point{X: 2, Y: 2}, math.Point{X: 3, Y: 3}},
+			Outline{math.Point{X: 1, Y: 1}, math.Point{X: 3, Y: 3}},
 			false,
 		},
 		{
 			"Equal track but order wrong",
-			Track{math.Point{X: 1, Y: 1}, math.Point{X: 2, Y: 2}},
-			Track{math.Point{X: 2, Y: 2}, math.Point{X: 1, Y: 1}},
+			Outline{math.Point{X: 1, Y: 1}, math.Point{X: 2, Y: 2}},
+			Outline{math.Point{X: 2, Y: 2}, math.Point{X: 1, Y: 1}},
 			false,
 		},
 	}
@@ -52,15 +52,15 @@ func TestEquals(t *testing.T) {
 func TestRemove(t *testing.T) {
 	var tests = []struct {
 		name  string
-		trk   Track
+		trk   Outline
 		index int
-		want  Track
+		want  Outline
 	}{
 		{
 			"Remove one element",
-			Track{math.Point{X: 1, Y: 1}, math.Point{X: 2, Y: 2}, math.Point{X: 3, Y: 3}},
+			Outline{math.Point{X: 1, Y: 1}, math.Point{X: 2, Y: 2}, math.Point{X: 3, Y: 3}},
 			1,
-			Track{math.Point{X: 1, Y: 1}, math.Point{X: 3, Y: 3}},
+			Outline{math.Point{X: 1, Y: 1}, math.Point{X: 3, Y: 3}},
 		},
 	}
 

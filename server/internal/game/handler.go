@@ -8,7 +8,6 @@ import (
 
 	"github.com/gorilla/websocket"
 	"gitlab.com/resamvi/sennai/internal/protocol"
-	"gitlab.com/resamvi/sennai/internal/track"
 	"gitlab.com/resamvi/sennai/pkg/pubsub"
 )
 
@@ -39,10 +38,8 @@ func ServeWs(g *Game, w http.ResponseWriter, r *http.Request) {
 	msg := toJSON("cars", g.Clients())
 	msg = appendKey("id", playerID, msg)
 
-	inner, t, outer := track.New() // TODO: debug
+	t := g.Track()
 	msg = appendKey("track", t, msg)
-	msg = appendKey("inner", inner, msg)
-	msg = appendKey("outer", outer, msg)
 
 	err = protocol.Send(conn, protocol.INIT, msg)
 	if err != nil {
@@ -72,6 +69,10 @@ func write(g *Game, sub *pubsub.Subscription, conn *websocket.Conn) {
 			log.Println(err)
 			break
 		}
+
+		if event.Typ != protocol.UPDATE {
+			log.Printf("SENT: %s - %s\n", event.Typ, msg.String())
+		}
 	}
 }
 
@@ -98,18 +99,7 @@ func read(g *Game, conn *websocket.Conn, playerID int) {
 
 			g.SetPlayerInput(input, playerID)
 		case protocol.PLEASE: // TODO: Remove. Do not give players the ability to change the map
-			//g.ChangeTrack()
-
-			inner, t, outer := track.New()
-			msg := toJSON("track", t)
-			msg = appendKey("inner", inner, msg)
-			msg = appendKey("outer", outer, msg)
-
-			err = protocol.Send(conn, protocol.TRACK, msg)
-			if err != nil {
-				log.Println(err)
-				return
-			}
+			g.ChangeTrack()
 		case protocol.HELLO:
 			var name string
 
