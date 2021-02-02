@@ -39,11 +39,10 @@ func ServeWs(g *Game, w http.ResponseWriter, r *http.Request) {
 	msg := toJSON("cars", g.Clients())
 	msg = appendKey("id", playerID, msg)
 
-	t := track.New() // TODO: debug
+	inner, t, outer := track.New() // TODO: debug
 	msg = appendKey("track", t, msg)
-	msg = appendKey("hull", t.Hull(), msg)
-	msg = appendKey("sharp", t.Hull().SpaceApart().SpaceApart().SpaceApart().SharpenCorners(), msg)
-	msg = appendKey("smooth", t.Hull().SpaceApart().SpaceApart().SpaceApart().SharpenCorners().Smoothen(), msg)
+	msg = appendKey("inner", inner, msg)
+	msg = appendKey("outer", outer, msg)
 
 	err = protocol.Send(conn, protocol.INIT, msg)
 	if err != nil {
@@ -101,12 +100,10 @@ func read(g *Game, conn *websocket.Conn, playerID int) {
 		case protocol.PLEASE: // TODO: Remove. Do not give players the ability to change the map
 			//g.ChangeTrack()
 
-			t := track.New()
-
+			inner, t, outer := track.New()
 			msg := toJSON("track", t)
-			msg = appendKey("hull", t.Hull(), msg)
-			msg = appendKey("sharp", t.Hull().SpaceApart().SpaceApart().SpaceApart().SharpenCorners(), msg)
-			msg = appendKey("smooth", t.Hull().SpaceApart().SpaceApart().SpaceApart().SharpenCorners().Smoothen(), msg)
+			msg = appendKey("inner", inner, msg)
+			msg = appendKey("outer", outer, msg)
 
 			err = protocol.Send(conn, protocol.TRACK, msg)
 			if err != nil {
@@ -118,7 +115,7 @@ func read(g *Game, conn *websocket.Conn, playerID int) {
 
 			err := json.Unmarshal(payload, &name)
 			if err != nil {
-				log.Fatalln(err)
+				log.Fatalln("HELLO: " + err.Error())
 			}
 
 			g.SetPlayerName(name, playerID)
@@ -135,7 +132,7 @@ func toJSON(field string, item interface{}) []byte {
 
 	j, err := json.Marshal(m)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("toJSON: " + err.Error())
 	}
 
 	return j
@@ -153,7 +150,7 @@ func appendKey(field string, item interface{}, data []byte) []byte {
 
 	j, err := json.Marshal(m)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("appendKey: " + err.Error())
 	}
 
 	return j

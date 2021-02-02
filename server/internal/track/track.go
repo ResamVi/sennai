@@ -19,10 +19,11 @@ const (
 
 	difficulty      = 1
 	maxdisplacement = 800
+	trackwidth      = 400
 )
 
 // Track stores the outline of a track
-type Track []math.Point
+type Track []math.Point // TODO: should be struct
 
 // String returns a conscise representation of all points in the track
 func (t Track) String() string {
@@ -32,6 +33,21 @@ func (t Track) String() string {
 	}
 
 	return str[:len(str)-2] + "]"
+}
+
+// Equal checks for equality (sensitive to order of points)
+func (t Track) Equal(trk Track) bool {
+	if len(t) != len(trk) {
+		return false
+	}
+
+	for i := 0; i < len(t); i++ {
+		if t[i].X != trk[i].X || t[i].Y != trk[i].Y {
+			return false
+		}
+	}
+
+	return true
 }
 
 // Push appends a point to the track
@@ -44,6 +60,11 @@ func (t *Track) Pop() math.Point {
 	point := (*t)[len(*t)-1]
 	*t = (*t)[:len(*t)-1]
 	return point
+}
+
+// Remove splices the slice and keeps the order
+func (t *Track) Remove(i int) {
+	*t = append((*t)[:i], (*t)[i+1:]...)
 }
 
 // Len is the number of elements in the collection.
@@ -84,39 +105,52 @@ func (t Track) Swap(i, j int) {
 }
 
 // New creates a new track
-func New() Track {
+// returns the inner bounds, center line, and outer bounds of the track
+func New() (Track, Track, Track) {
 	track := Track{}
 	for i := 0; i < pointcount; i++ {
 		p := math.Point{X: rand.Float64() * maxwidth, Y: rand.Float64() * maxheight}
 		track.Push(p)
 	}
 
-	/*finished := track.Hull().
-	SpaceApart().
-	SpaceApart().
-	SpaceApart().
-	SharpenCorners().
-	Smoothen()*/
-
-	return track
-}
-
-// Generate creates a new track and returns the same track if seed is the same
-func Generate() Track {
-	track := Track{}
-	for i := 0; i < pointcount; i++ {
-		p := math.Point{X: rand.Float64() * maxwidth, Y: rand.Float64() * maxheight}
-		track.Push(p)
-	}
-
-	finished := track.Hull().
+	interm := track.Hull().
 		SpaceApart().
 		SpaceApart().
 		SpaceApart().
 		SharpenCorners().
 		Smoothen()
 
-	return finished
+	inner, outer := interm.Inner(), interm.Outer()
+
+	// Remove interfering points
+	for _, p1 := range interm {
+
+		for k := 0; k < len(inner); k++ {
+			p2 := inner[k]
+
+			if p1 == p2 {
+				continue
+			}
+
+			if p1.DistanceTo(p2)+2 < trackwidth {
+				inner.Remove(k)
+			}
+		}
+
+		for k := 0; k < len(outer); k++ {
+			p2 := outer[k]
+
+			if p1 == p2 {
+				continue
+			}
+
+			if p1.DistanceTo(p2)+2 < trackwidth {
+				outer.Remove(k)
+			}
+		}
+	}
+
+	return inner, interm, outer
 }
 
 // Hull returns the convex hull: the minimal amount of points that encompass every point of the track inside it
@@ -221,6 +255,46 @@ func (t Track) Smoothen() Track {
 		y := math.CatmullRom(ys, f)
 		modified.Push(math.Point{X: x, Y: y})
 	}
+
+	return modified
+}
+
+// Inner returns the inner track side i.e.
+// ————————————————┑
+//                 │
+// ———— t ————┑    |
+//            |    │
+// —inner—┑   |    │
+//        │   |    │
+func (t Track) Inner() Track {
+	return t.bounds(1)
+}
+
+// Outer returns the inner track side i.e.
+// ————outer———————┑
+//                 │
+// ———— t ————┑    |
+//            |    │
+// ———————┑   |    │
+//        │   |    │
+func (t Track) Outer() Track {
+	return t.bounds(-1)
+}
+
+func (t Track) bounds(sign int) Track {
+	modified := make(Track, 0)
+	for i := 0; i < len(t)-1; i++ {
+		from, to := t[i], t[i+1]
+
+		direction := math.Vector{X: from.X - to.X, Y: from.Y - to.Y}
+		direction.Rotate(sign * 90)
+		direction.Normalize()
+		direction.Scale(trackwidth)
+
+		to.MoveBy(direction)
+		modified.Push(to)
+	}
+	modified.Push(modified[0])
 
 	return modified
 }

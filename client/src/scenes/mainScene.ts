@@ -25,8 +25,8 @@ export default class MainScene extends Phaser.Scene
     private track:          Phaser.Geom.Point[] = [];
     
     // bounds of track
-    private inner:          Phaser.Geom.Point[] = [];
-    private outer:          Phaser.Geom.Point[] = [];
+    private inner;
+    private outer;
 
     // displayed on the nametag
     private name: string;
@@ -50,7 +50,14 @@ export default class MainScene extends Phaser.Scene
     // and transfers any inputted data to be used and displayed
     init(menuInput)
     {
-        this.name = menuInput.name;
+        if(menuInput.name !== undefined)
+        {
+            this.name = menuInput.name;
+        }
+        else
+        {
+            this.name = 'Default';
+        }
     }
 
     preload ()
@@ -186,19 +193,13 @@ export default class MainScene extends Phaser.Scene
                 break;
         }
     }
-    
-    hull;
-    sharp;
-    smooth;
 
     initGame(initPackage) // TODO: types in protocol
     {
-        this.id     = initPackage.id;        
-        this.track  = initPackage.track;
-        
-        this.hull       = initPackage.hull;
-        this.sharp      = initPackage.sharp;
-        this.smooth     = initPackage.smooth;
+        this.id         = initPackage.id;        
+        this.track      = initPackage.track;    
+        this.inner      = initPackage.inner;
+        this.outer      = initPackage.outer;
 
         for(let car of initPackage.cars)
             this.cars.push(new Car(this, this.name, car.id));
@@ -221,9 +222,8 @@ export default class MainScene extends Phaser.Scene
     updateTrack(newtrack)
     {
         this.track      = newtrack.track;
-        this.hull       = newtrack.hull;
-        this.sharp      = newtrack.sharp;
-        this.smooth     = newtrack.smooth;
+        this.inner      = newtrack.inner;
+        this.outer      = newtrack.outer;
     }
 
     playerJoined(player)
@@ -247,44 +247,36 @@ export default class MainScene extends Phaser.Scene
         this.graphics.lineStyle(5, 0x0000ff);
         //this.graphics.strokeRect(0, 0, this.MAX_WIDTH, this.MAX_HEIGHT);
 
-        // Track cloud
-        /*this.graphics.fillStyle(0x00ff00);
-        if(this.track.length != 0)
-        {
-            for(let p of this.track)
-                this.graphics.fillCircle(p.x, p.y, 20);
-        }*/
-
-        // Hull
-        /*if(this.hull.length != 0)
-        {
-            this.graphics.lineStyle(2, 0x00ff00)
-            this.graphics.strokePoints(this.hull);
-
-            this.graphics.fillStyle(0x00ff00);
-            for(let p of this.hull)
-                this.graphics.fillCircle(p.x, p.y, 20);
-        }*/
-
-        // Sharp
-        if(this.sharp != undefined)
+        // track
+        if(this.track != undefined)
         {
             this.graphics.lineStyle(2, 0xff0000)
-            this.graphics.strokePoints(this.sharp);
+            this.graphics.strokePoints(this.track);
             
             this.graphics.fillStyle(0xff0000);
-            for(let p of this.sharp)
+            for(let p of this.track)
                 this.graphics.fillCircle(p.x, p.y, 20);
         }
 
-        // Smooth
-        if(this.smooth != undefined)
+        // Inner
+        if(this.inner != undefined)
         {
-            this.graphics.lineStyle(2, 0xffff00)
-            this.graphics.strokePoints(this.smooth);
+            this.graphics.lineStyle(2, 0xffffff)
+            this.graphics.strokePoints(this.inner);
 
-            this.graphics.fillStyle(0xffff00);
-            for(let p of this.smooth)
+            this.graphics.fillStyle(0xffffff);
+            for(let p of this.inner)
+                this.graphics.fillCircle(p.x, p.y, 20);
+        }
+
+        // Outer
+        if(this.outer != undefined)
+        {
+            this.graphics.lineStyle(2, 0x00ffff)
+            this.graphics.strokePoints(this.outer);
+
+            this.graphics.fillStyle(0x00ffff);
+            for(let p of this.outer)
                 this.graphics.fillCircle(p.x, p.y, 20);
         }
     }
