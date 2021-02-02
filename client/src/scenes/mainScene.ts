@@ -1,5 +1,4 @@
 import { Car } from '../car';
-import { generateTrack } from '../track';
 import Protocol from '../protocol';
 
 const ENDPOINT = 'wss://online.resamvi.io/ws';
