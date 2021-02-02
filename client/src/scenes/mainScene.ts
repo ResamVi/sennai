@@ -19,10 +19,10 @@ export default class MainScene extends Phaser.Scene
     private scoreboard: Phaser.GameObjects.Text;
     
     // every player in the game
-    private cars:           Car[]               = [];
+    private cars: Car[] = [];
     
     // track to drive on
-    private track:          Phaser.Geom.Point[] = [];
+    private track;
     
     // bounds of track
     private inner;
@@ -95,8 +95,6 @@ export default class MainScene extends Phaser.Scene
         this.scoreboard.setScrollFactor(0);
         
         this.graphics = this.add.graphics({ lineStyle: { width: 2, color: 0xff0000 }, fillStyle: { color: 0x00ff00 } },);
-        
-        [this.track, this.inner, this.outer] = generateTrack(Phaser.Math.RND);
         
         this.cameras.main.setZoom(this.zoom);
     }
@@ -197,12 +195,12 @@ export default class MainScene extends Phaser.Scene
     initGame(initPackage) // TODO: types in protocol
     {
         this.id         = initPackage.id;        
-        this.track      = initPackage.track;    
-        this.inner      = initPackage.inner;
-        this.outer      = initPackage.outer;
+        this.track      = initPackage.track.track;    
+        this.inner      = initPackage.track.inner;
+        this.outer      = initPackage.track.outer;
 
         for(let car of initPackage.cars)
-            this.cars.push(new Car(this, this.name, car.id));
+            this.cars.push(new Car(this, car.name, car.id));
         
         this.cameras.main.startFollow(this.cars[this.id], false);
     }

@@ -68,7 +68,7 @@ func (g *Game) Connect() (int, *pubsub.Subscription) {
 	}
 
 	player := Player{
-		Name:     "<Pending>",
+		Name:     "<Loading>",
 		ID:       id,
 		X:        4 + rand.Intn(50), // TODO: This is hardcoded from a track
 		Y:        880 + rand.Intn(50),

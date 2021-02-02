@@ -32,9 +32,10 @@ export class Car extends Phaser.Physics.Matter.Image
 
     public update(carData: any)
     {
-        this.x          = carData.x;
-        this.y          = carData.y;
-        this.rotation   = carData.rotation;
+        this.x              = carData.x;
+        this.y              = carData.y;
+        this.rotation       = carData.rotation;
+        this.nametag.text   = carData.name;
         
         this.nametag.setPosition(this.x, this.y-100);
         //this.track_progress(frames); // TODO: remove
