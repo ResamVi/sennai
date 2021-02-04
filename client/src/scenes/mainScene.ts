@@ -116,25 +116,10 @@ export default class MainScene extends Phaser.Scene
         let oldDown = this.downKeyPressed;
 
         // steer
-        if (this.cursors.left.isDown)
-            this.leftKeyPressed = true;
-        else if (this.cursors.right.isDown)
-            this.rightKeyPressed = true;
-        else
-        {
-            this.rightKeyPressed = false;
-            this.leftKeyPressed = false;
-        }
-
-        if (this.cursors.up.isDown)
-            this.upKeyPressed = true;
-        else if (this.cursors.down.isDown)
-            this.downKeyPressed = true;
-        else
-        {
-            this.upKeyPressed = false;
-            this.downKeyPressed = false;
-        }
+        this.leftKeyPressed = this.cursors.left.isDown;
+        this.rightKeyPressed = this.cursors.right.isDown;
+        this.upKeyPressed = this.cursors.up.isDown;
+        this.downKeyPressed = this.cursors.down.isDown;
 
         if (oldLeft !== this.leftKeyPressed || oldRight !== this.rightKeyPressed || oldUp !== this.upKeyPressed || oldDown !== this.downKeyPressed)
         {
@@ -205,6 +190,7 @@ export default class MainScene extends Phaser.Scene
     front;
     back;
     dir;
+    head;
     updateGame(gamestate)
     {
         for(let car of gamestate)
@@ -218,6 +204,7 @@ export default class MainScene extends Phaser.Scene
             this.front = car.Front;
             this.back = car.Back;
             this.dir = car.Dir;
+            this.head = car.Head;
         }
     }
 
@@ -266,13 +253,18 @@ export default class MainScene extends Phaser.Scene
 
         if(this.back != undefined)
         {
-            this.graphics.fillStyle(0xff0000);
+            this.graphics.fillStyle(0x00ff00);
             this.graphics.fillCircle(this.back.x, this.back.y, 5);
         }
 
-        if(this.dir != undefined)
+        /*if(this.dir != undefined)
         {
             this.drawArrow({x: this.cars[0].x, y: this.cars[0].y}, this.dir);
+        }*/
+
+        if(this.head != undefined)
+        {
+            this.drawArrow({x: this.cars[0].x, y: this.cars[0].y}, this.head);
         }
         
         // Rectangle of generated points
@@ -285,9 +277,9 @@ export default class MainScene extends Phaser.Scene
             this.graphics.lineStyle(2, 0xff0000)
             this.graphics.strokePoints(this.track);
             
-            this.graphics.fillStyle(0xff0000);
+            /*this.graphics.fillStyle(0xff0000);
             for(let p of this.track)
-                this.graphics.fillCircle(p.x, p.y, 20);
+                this.graphics.fillCircle(p.x, p.y, 20);*/
         }
 
         // Inner

@@ -11,6 +11,12 @@ type Point struct {
 	Y float64 `json:"y"`
 }
 
+// Add does component-wise addition of the point with a vector
+func (p *Point) Add(v Vector) {
+	p.X += v.X
+	p.Y += v.Y
+}
+
 // MoveBy displaces the point in the direction of the vector
 func (p *Point) MoveBy(v Vector) {
 	p.X += v.X

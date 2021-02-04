@@ -30,7 +30,7 @@ type Track struct {
 }
 
 // Outline is a chain of points to create a line
-type Outline []math.Point // TODO: should be struct
+type Outline []math.Point
 
 // New creates a new track
 func New() Track {
