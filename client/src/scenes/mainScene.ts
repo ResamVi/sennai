@@ -262,10 +262,10 @@ export default class MainScene extends Phaser.Scene
             this.drawArrow({x: this.cars[0].x, y: this.cars[0].y}, this.dir);
         }*/
 
-        if(this.head != undefined)
+        /*if(this.head != undefined)
         {
             this.drawArrow({x: this.cars[0].x, y: this.cars[0].y}, this.head);
-        }
+        }*/
         
         // Rectangle of generated points
         this.graphics.lineStyle(5, 0x0000ff);

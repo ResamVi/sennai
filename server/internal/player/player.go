@@ -29,14 +29,14 @@ type Player struct {
 	Input    Input
 }
 
-const (
-	velocity    = 100
-	turnspeed   = 5       // amount that front wheel turns
-	wheelbase   = 40      // distance from front to rear wheel
-	enginepower = 5.0     // power to accelerate
+var (
+	turnspeed   = 4.0     // amount that front wheel turns
+	wheelbase   = 40.0    // distance from front to rear wheel
+	enginepower = 4.0     // power to accelerate
 	brakepower  = -2.0    // power to brake
-	friction    = -0.009  // force applied by the ground
+	friction    = -0.06   // force applied by the ground
 	drag        = -0.0015 // wind resistance
+	traction    = 0.00001 // drift factor (1= basically on rails)
 )
 
 // New creates a new player pointing at the right direction on the track
@@ -57,7 +57,7 @@ func New(id int, start math.Point, next math.Point) Player {
 func (p *Player) Update() {
 
 	// Translate input
-	steerangle := 0
+	steerangle := 0.0
 	if p.Input.Left {
 		steerangle = -turnspeed
 	} else if p.Input.Right {
@@ -99,10 +99,13 @@ func (p *Player) Update() {
 
 	newHeading := math.Vector{X: frontWheel.X - rearWheel.X, Y: frontWheel.Y - rearWheel.Y}
 	newHeading.Normalize()
+	newHeading.Scale(p.velocity.Len())
+
+	p.velocity = math.InterpolateVector(p.velocity, newHeading, traction)
 
 	// Do not allow reversing
 	if p.velocity.Dot(newHeading) < 0 {
-		p.velocity = math.Vector{X: 0, Y: 0}
+		p.velocity.Scale(0)
 	}
 
 	// Move

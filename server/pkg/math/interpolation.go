@@ -14,6 +14,16 @@ func Interpolate(a, b Point, t float64) Point {
 	return result
 }
 
+// InterpolateVector - TODO: we could use an interface instead
+func InterpolateVector(a, b Vector, t float64) Vector {
+	result := Vector{}
+
+	result.X = a.X + ((b.X - a.X) * t)
+	result.Y = a.Y + ((b.Y - a.Y) * t)
+
+	return result
+}
+
 // CatmullRom implements the the Catmull-Rom interpolation method.
 // with v being the input array of values to interpolate between
 // and k the percentage of interpolation, between 0 and 1

@@ -59,8 +59,8 @@ func (v *Vector) Scale(factor float64) {
 }
 
 // Rotate rotates the vector by `alpha` degrees anti-clockwise
-func (v *Vector) Rotate(alpha int) {
-	rad := float64(alpha) * (math.Pi / 180.0)
+func (v *Vector) Rotate(alpha float64) {
+	rad := alpha * (math.Pi / 180.0)
 
 	cos, sin := math.Cos(rad), math.Sin(rad)
 

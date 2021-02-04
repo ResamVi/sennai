@@ -237,7 +237,7 @@ func (ol Outline) SharpenCorners() Outline {
 		displaceLength := math.Pow(b, difficulty) * maxdisplacement
 
 		displace := math.Vector{X: 1, Y: 0}
-		displace.Rotate(rand.Intn(360))
+		displace.Rotate(rand.Float64() * 360)
 		displace.Scale(displaceLength)
 
 		midpoint := math.Interpolate(ol[i], ol[i+1], 0.5)
@@ -274,7 +274,7 @@ func (ol Outline) Smoothen() Outline {
 // —inner—┑   |    │
 //        │   |    │
 func (ol Outline) Inner() Outline {
-	return ol.bounds(1)
+	return ol.bounds(1.0)
 }
 
 // Outer returns the outer track side i.e. a upscaled version
@@ -286,10 +286,10 @@ func (ol Outline) Inner() Outline {
 // ———————┑   |    │
 //        │   |    │
 func (ol Outline) Outer() Outline {
-	return ol.bounds(-1)
+	return ol.bounds(-1.0)
 }
 
-func (ol Outline) bounds(sign int) Outline {
+func (ol Outline) bounds(sign float64) Outline {
 	modified := make(Outline, 0)
 	for i := 0; i < len(ol)-1; i++ {
 		from, to := ol[i], ol[i+1]
