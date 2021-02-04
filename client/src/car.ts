@@ -16,7 +16,7 @@ export class Car extends Phaser.Physics.Matter.Image
     constructor(scene: Phaser.Scene, name: string, index)
     {
         super(scene.matter.world, 0, 0, 'car');
-        scene.add.existing(this);
+        //scene.add.existing(this);
 
         this.index = index;
 
@@ -34,7 +34,7 @@ export class Car extends Phaser.Physics.Matter.Image
     {
         this.x              = carData.x;
         this.y              = carData.y;
-        this.rotation       = carData.rotation;
+        this.angle          = 360 + carData.rotation;
         this.nametag.text   = carData.name;
         
         this.nametag.setPosition(this.x, this.y-100);

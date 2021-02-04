@@ -37,7 +37,7 @@ export default class MainScene extends Phaser.Scene
     private socket: WebSocket;
     
     // Debug
-    zoom = 0.05; // 0.3;
+    zoom = 0.3;
     graphics:       Phaser.GameObjects.Graphics;
     
     constructor ()
@@ -71,13 +71,11 @@ export default class MainScene extends Phaser.Scene
         this.socket.onmessage = ({data}) => this.read(data);
         this.socket.onopen = () => Protocol.send(this.socket, Protocol.HELLO, this.name);
         
-        // zoom in/out for better inspection TODO: Remove
         this.input.on('wheel', (a, b, c, deltaY) => {
             this.zoom -= 0.0001 * deltaY;
             this.cameras.main.setZoom(this.zoom);
         });
 
-        // used to get world coordinates TODO: Remove
         this.input.keyboard.on('keydown-B', () => {
             console.log(this.cars[0].x, this.cars[0].y);
         });
@@ -204,6 +202,9 @@ export default class MainScene extends Phaser.Scene
         this.cameras.main.startFollow(this.cars[this.id], false);
     }
 
+    front;
+    back;
+    dir;
     updateGame(gamestate)
     {
         for(let car of gamestate)
@@ -213,7 +214,25 @@ export default class MainScene extends Phaser.Scene
                 return;
 
             this.cars[car.id].update(car);
+
+            this.front = car.Front;
+            this.back = car.Back;
+            this.dir = car.Dir;
         }
+    }
+
+    drawArrow(from, to)
+    {
+        //const LINE_WIDTH = 50;
+        
+        this.graphics.lineStyle(10, 0xffa500)
+        this.graphics.lineBetween(from.x, from.y, from.x + to.x*50, from.y + to.y*50);
+        
+        /*let direction   = new Phaser.Math.Vector2(from.x - to.x, from.y - to.y);
+        let arrowhead1  = direction.clone().rotate(Math.PI/2 - Math.PI/4).normalize().scale(LINE_WIDTH);
+        let arrowhead2  = direction.clone().rotate(-Math.PI/2 + Math.PI/4).normalize().scale(LINE_WIDTH);
+        this.graphics.lineBetween(to.x, to.y, to.x + arrowhead1.x, to.y + arrowhead1.y);
+        this.graphics.lineBetween(to.x, to.y, to.x + arrowhead2.x, to.y + arrowhead2.y);*/
     }
 
     updateTrack(newtrack)
@@ -239,6 +258,22 @@ export default class MainScene extends Phaser.Scene
 
     debug()
     {
+        if(this.front != undefined)
+        {
+            this.graphics.fillStyle(0xff0000);
+            this.graphics.fillCircle(this.front.x, this.front.y, 5);
+        }
+
+        if(this.back != undefined)
+        {
+            this.graphics.fillStyle(0xff0000);
+            this.graphics.fillCircle(this.back.x, this.back.y, 5);
+        }
+
+        if(this.dir != undefined)
+        {
+            this.drawArrow({x: this.cars[0].x, y: this.cars[0].y}, this.dir);
+        }
         
         // Rectangle of generated points
         this.graphics.lineStyle(5, 0x0000ff);
@@ -276,26 +311,6 @@ export default class MainScene extends Phaser.Scene
             for(let p of this.outer)
                 this.graphics.fillCircle(p.x, p.y, 20);
         }
-    }
-
-    /**
-     * For debugging purposes
-     * 
-     * @param from 
-     * @param to 
-     */
-    drawArrow(from: Phaser.Geom.Point, to: Phaser.Geom.Point)
-    {
-        const LINE_WIDTH = 50;
-        
-        this.graphics.lineStyle(10, 0xffa500)
-        this.graphics.lineBetween(from.x, from.y, to.x, to.y);
-        
-        let direction   = new Phaser.Math.Vector2(from.x - to.x, from.y - to.y);
-        let arrowhead1  = direction.clone().rotate(Math.PI/2 - Math.PI/4).normalize().scale(LINE_WIDTH);
-        let arrowhead2  = direction.clone().rotate(-Math.PI/2 + Math.PI/4).normalize().scale(LINE_WIDTH);
-        this.graphics.lineBetween(to.x, to.y, to.x + arrowhead1.x, to.y + arrowhead1.y);
-        this.graphics.lineBetween(to.x, to.y, to.x + arrowhead2.x, to.y + arrowhead2.y);
     }
 
     pad(str): string

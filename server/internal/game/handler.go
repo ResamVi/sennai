@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/websocket"
+	"gitlab.com/resamvi/sennai/internal/player"
 	"gitlab.com/resamvi/sennai/internal/protocol"
 	"gitlab.com/resamvi/sennai/pkg/pubsub"
 )
@@ -26,7 +27,7 @@ func ServeWs(g *Game, w http.ResponseWriter, r *http.Request) {
 	// change to websocket connection
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Fatalln(err)
+		log.Fatalln("UPGRADE: " + err.Error())
 	}
 	defer conn.Close()
 
@@ -61,7 +62,7 @@ func write(g *Game, sub *pubsub.Subscription, conn *websocket.Conn) {
 		msg := new(bytes.Buffer)
 		err := json.NewEncoder(msg).Encode(event.Payload)
 		if err != nil {
-			log.Fatalln(err)
+			log.Fatalln("WRITE: " + err.Error())
 		}
 
 		err = protocol.Send(conn, event.Typ, msg.Bytes())
@@ -90,11 +91,11 @@ func read(g *Game, conn *websocket.Conn, playerID int) {
 
 		switch prefix {
 		case protocol.INPUT:
-			var input Input
+			var input player.Input
 
 			err := json.Unmarshal(payload, &input)
 			if err != nil {
-				log.Fatalln(err)
+				log.Fatalln("INPUT: " + err.Error())
 			}
 
 			g.SetPlayerInput(input, playerID)
@@ -134,7 +135,7 @@ func appendKey(field string, item interface{}, data []byte) []byte {
 
 	err := json.Unmarshal(data, &m)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("appendKey (unmarshal): " + err.Error())
 	}
 	m[field] = item
 

@@ -4,10 +4,10 @@ package game
 
 import (
 	"log"
-	"math/rand"
 	"sync"
 	"time"
 
+	"gitlab.com/resamvi/sennai/internal/player"
 	"gitlab.com/resamvi/sennai/internal/protocol"
 	"gitlab.com/resamvi/sennai/internal/track"
 	"gitlab.com/resamvi/sennai/pkg/pubsub"
@@ -48,7 +48,7 @@ func (g *Game) Run() {
 // Consider a call to Update a heart beat with each call being a game cycle
 func (g *Game) Update() {
 	g.players.Range(func(k interface{}, v interface{}) bool {
-		player := v.(*Player)
+		player := v.(*player.Player)
 		player.Update()
 
 		return true
@@ -67,14 +67,7 @@ func (g *Game) Connect() (int, *pubsub.Subscription) {
 		}
 	}
 
-	player := Player{
-		Name:     "<Loading>",
-		ID:       id,
-		X:        4 + rand.Intn(50), // TODO: This is hardcoded from a track
-		Y:        880 + rand.Intn(50),
-		Rotation: 7,
-		input:    Input{Left: false, Right: false, Up: false, Down: false},
-	}
+	player := player.New(id, g.track.Track[0], g.track.Track[1])
 	g.players.Store(id, &player)
 
 	sub := g.events.Subscribe()
@@ -94,15 +87,15 @@ func (g *Game) Disconnect(id int, sub *pubsub.Subscription) {
 
 // SetPlayerInput is used when an input command from a player
 // is registered and applied on the next game cycle
-func (g *Game) SetPlayerInput(input Input, playerID int) {
-	player, ok := g.players.Load(playerID)
+func (g *Game) SetPlayerInput(input player.Input, playerID int) {
+	p, ok := g.players.Load(playerID)
 
 	if !ok {
 		log.Fatalf("setting input for unknown playerID: %d", playerID)
 	}
 
-	new := player.(*Player)
-	new.input = input
+	new := p.(*player.Player)
+	new.Input = input // TODO: Should be done by player
 
 	g.players.Store(playerID, new)
 }
@@ -110,17 +103,17 @@ func (g *Game) SetPlayerInput(input Input, playerID int) {
 // SetPlayerName is used when the player has chosen a name
 // that is to be displayed on his nametag
 func (g *Game) SetPlayerName(name string, playerID int) {
-	player, ok := g.players.Load(playerID)
+	p, ok := g.players.Load(playerID)
 
 	if !ok {
 		log.Fatalf("setting name for unknown playerID: %d", playerID)
 	}
 
-	p := player.(*Player)
-	p.Name = name
+	modified := p.(*player.Player)
+	modified.Name = name
 
 	g.players.Store(playerID, p)
-	g.events.Publish(protocol.JOIN, player)
+	g.events.Publish(protocol.JOIN, modified)
 }
 
 // Track returns the currently used track layout
@@ -135,10 +128,10 @@ func (g *Game) ChangeTrack() {
 }
 
 // Clients returns the currently connected clients as a slice
-func (g *Game) Clients() []Player {
-	result := make([]Player, 0)
+func (g *Game) Clients() []player.Player {
+	result := make([]player.Player, 0)
 	g.players.Range(func(k interface{}, v interface{}) bool {
-		item := *v.(*Player)
+		item := *v.(*player.Player)
 		result = append(result, item)
 		return true
 	})
