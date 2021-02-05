@@ -40,7 +40,7 @@ export default class StartScene extends Phaser.Scene
             type: 'textarea',
             text: this.name,
             fontSize: '32px',
-            maxLength: '16',
+            maxLength: '12',
         })
         .resize(300, 50)
         .on('textchange', (inputText) => this.name = inputText.text);

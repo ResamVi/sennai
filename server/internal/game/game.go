@@ -10,6 +10,7 @@ import (
 	"gitlab.com/resamvi/sennai/internal/player"
 	"gitlab.com/resamvi/sennai/internal/protocol"
 	"gitlab.com/resamvi/sennai/internal/track"
+	"gitlab.com/resamvi/sennai/pkg/math"
 	"gitlab.com/resamvi/sennai/pkg/pubsub"
 )
 
@@ -39,7 +40,7 @@ func (g *Game) Run() {
 		select {
 		case <-g.clock.C:
 			g.Update()
-			g.events.Publish(protocol.UPDATE, g.Clients())
+			g.events.Publish(protocol.UPDATE, g.Players())
 		}
 	}
 }
@@ -49,7 +50,17 @@ func (g *Game) Run() {
 func (g *Game) Update() {
 	g.players.Range(func(k interface{}, v interface{}) bool {
 		player := v.(*player.Player)
-		player.Update()
+
+		circle := math.Circle{X: player.X, Y: player.Y, Radius: track.Trackwidth}
+		pointsTouching := make([]int, 0)
+		points := make([]math.Point, 0)
+		for i, p := range g.track.Track {
+			if circle.Contains(p) {
+				pointsTouching = append(pointsTouching, i)
+				points = append(points, p)
+			}
+		}
+		player.Update(pointsTouching)
 
 		return true
 	})
@@ -67,7 +78,7 @@ func (g *Game) Connect() (int, *pubsub.Subscription) {
 		}
 	}
 
-	player := player.New(id, g.track.Track[0], g.track.Track[1])
+	player := player.New(id, g.track.Track[10], g.track.Track[11], len(g.track.Track))
 	g.players.Store(id, &player)
 
 	sub := g.events.Subscribe()
@@ -121,14 +132,18 @@ func (g *Game) Track() track.Track {
 	return g.track
 }
 
+//func (g Game) FinishRound() {
+// if player.progress > 80% && max(player.progress) == 100
+//}
+
 // ChangeTrack changes the track of the game
 func (g *Game) ChangeTrack() {
 	g.track = track.New()
 	g.events.Publish(protocol.TRACK, g.track)
 }
 
-// Clients returns the currently connected clients as a slice
-func (g *Game) Clients() []player.Player {
+// Players returns the currently connected clients as a slice
+func (g *Game) Players() []player.Player {
 	result := make([]player.Player, 0)
 	g.players.Range(func(k interface{}, v interface{}) bool {
 		item := *v.(*player.Player)

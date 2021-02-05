@@ -80,15 +80,14 @@ export default class MainScene extends Phaser.Scene
             console.log(this.cars[0].x, this.cars[0].y);
         });
 
-        // request to generate a new map TODO: Remove
         this.input.keyboard.on('keydown-R', () => {
             Protocol.send(this.socket, Protocol.PLEASE, {});
         });
 
         this.cursors = this.input.keyboard.createCursorKeys();
+                
+        this.scoreboard = this.add.text(-1280, -720, '', { font: '96px Courier', color: '#00ff00' });
         
-        // TODO: Implement scoreboard
-        this.scoreboard = this.add.text(-1080*2, -720*2, '', { font: '96px Courier', color: '#00ff00' });
         this.scoreboard.setScrollFactor(0);
         
         this.graphics = this.add.graphics({ lineStyle: { width: 2, color: 0xff0000 }, fillStyle: { color: 0x00ff00 } },);
@@ -100,15 +99,16 @@ export default class MainScene extends Phaser.Scene
     {
         this.graphics.clear();
 
-        this.controls();
+        this.readControls();
 
         //this.drawTrack();
+        this.drawBestlist();
         this.debug();
     }
 
-    // controls sends player inputs to the server
+    // readControls sends player inputs to the server
     // they are sent in such a way that only a *change* in input is reported to the server
-    controls()
+    readControls()
     {
         let oldLeft = this.leftKeyPressed;
         let oldRight = this.rightKeyPressed;
@@ -145,6 +145,22 @@ export default class MainScene extends Phaser.Scene
         this.graphics.lineStyle(2, 0xff0000)
         this.graphics.strokePoints(this.inner);
         this.graphics.strokePoints(this.outer);
+    }
+
+    drawBestlist()
+    {
+        let bestlist = this.cars.slice(0);
+
+        bestlist.sort((a, b) => {
+            return b.percentage - a.percentage;
+        });
+    
+
+        let string: Array<string> = ["Ranking:"];
+        for(let i = 0; i < bestlist.length; i++)
+            string.push(`${this.pad(i+1, 2)}. ${this.pad(bestlist[i].name, 12)} | ${this.pad(bestlist[i].percentage, 2)}%`);
+
+        this.scoreboard.setText(string);
     }
 
     read(message)
@@ -187,10 +203,6 @@ export default class MainScene extends Phaser.Scene
         this.cameras.main.startFollow(this.cars[this.id], false);
     }
 
-    front;
-    back;
-    dir;
-    head;
     updateGame(gamestate)
     {
         for(let car of gamestate)
@@ -200,26 +212,13 @@ export default class MainScene extends Phaser.Scene
                 return;
 
             this.cars[car.id].update(car);
-
-            this.front = car.Front;
-            this.back = car.Back;
-            this.dir = car.Dir;
-            this.head = car.Head;
         }
     }
 
     drawArrow(from, to)
-    {
-        //const LINE_WIDTH = 50;
-        
+    {   
         this.graphics.lineStyle(10, 0xffa500)
         this.graphics.lineBetween(from.x, from.y, from.x + to.x*50, from.y + to.y*50);
-        
-        /*let direction   = new Phaser.Math.Vector2(from.x - to.x, from.y - to.y);
-        let arrowhead1  = direction.clone().rotate(Math.PI/2 - Math.PI/4).normalize().scale(LINE_WIDTH);
-        let arrowhead2  = direction.clone().rotate(-Math.PI/2 + Math.PI/4).normalize().scale(LINE_WIDTH);
-        this.graphics.lineBetween(to.x, to.y, to.x + arrowhead1.x, to.y + arrowhead1.y);
-        this.graphics.lineBetween(to.x, to.y, to.x + arrowhead2.x, to.y + arrowhead2.y);*/
     }
 
     updateTrack(newtrack)
@@ -245,26 +244,17 @@ export default class MainScene extends Phaser.Scene
 
     debug()
     {
-        if(this.front != undefined)
-        {
+        /*if(this.inside != undefined)
+        {   
             this.graphics.fillStyle(0xff0000);
-            this.graphics.fillCircle(this.front.x, this.front.y, 5);
-        }
+            for(let p of this.inside)
+                this.graphics.fillCircle(p.x, p.y, 20);
+        }*/
 
-        if(this.back != undefined)
-        {
-            this.graphics.fillStyle(0x00ff00);
-            this.graphics.fillCircle(this.back.x, this.back.y, 5);
-        }
 
         /*if(this.dir != undefined)
         {
             this.drawArrow({x: this.cars[0].x, y: this.cars[0].y}, this.dir);
-        }*/
-
-        /*if(this.head != undefined)
-        {
-            this.drawArrow({x: this.cars[0].x, y: this.cars[0].y}, this.head);
         }*/
         
         // Rectangle of generated points
@@ -305,8 +295,8 @@ export default class MainScene extends Phaser.Scene
         }
     }
 
-    pad(str): string
+    pad(str, length): string
     {
-        return str.toString().padStart(2, ' ');
+        return str.toString().padStart(length, ' ');
     }
 }

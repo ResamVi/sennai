@@ -58,7 +58,7 @@ func (v *Vector) Scale(factor float64) {
 	v.Y *= factor
 }
 
-// Rotate rotates the vector by `alpha` degrees anti-clockwise
+// Rotate rotates the vector by `alpha` degrees clockwise
 func (v *Vector) Rotate(alpha float64) {
 	rad := alpha * (math.Pi / 180.0)
 

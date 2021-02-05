@@ -36,7 +36,7 @@ func ServeWs(g *Game, w http.ResponseWriter, r *http.Request) {
 	defer g.Disconnect(playerID, sub)
 
 	// Send init/setup data to client
-	msg := toJSON("cars", g.Clients())
+	msg := toJSON("cars", g.Players())
 	msg = appendKey("id", playerID, msg)
 
 	t := g.Track()

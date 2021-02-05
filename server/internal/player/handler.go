@@ -25,8 +25,10 @@ func ChangeVar(w http.ResponseWriter, r *http.Request) {
 			enginepower = i
 		case "brakepower":
 			brakepower = i
-		case "friction":
-			friction = i
+		case "offtrackfriction":
+			offtrackfriction = i
+		case "ontrackfriction":
+			ontrackfriction = i
 		case "drag":
 			drag = i
 		case "traction":

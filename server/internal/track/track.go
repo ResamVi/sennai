@@ -19,7 +19,12 @@ const (
 
 	difficulty      = 1
 	maxdisplacement = 800
-	trackwidth      = 400
+
+	// Trackwidth is the width of center <-> border (i.e. total track width is 2*Trackwidth)
+	// and determines the radius of the offroad circle.
+	// An offroad circle is a circle that is centered on the player and as soon as
+	// no point of the track is inside the circle anymore the player is considered "offroad"
+	Trackwidth = 400
 )
 
 // Track repesents the layout and stores the outline and bounds of a track
@@ -59,7 +64,7 @@ func New() Track {
 				continue
 			}
 
-			if p1.DistanceTo(p2)+2 < trackwidth {
+			if p1.DistanceTo(p2)+2 < Trackwidth {
 				inner.Remove(k)
 			}
 		}
@@ -71,7 +76,7 @@ func New() Track {
 				continue
 			}
 
-			if p1.DistanceTo(p2)+2 < trackwidth {
+			if p1.DistanceTo(p2)+2 < Trackwidth {
 				outer.Remove(k)
 			}
 		}
@@ -297,7 +302,7 @@ func (ol Outline) bounds(sign float64) Outline {
 		direction := math.Vector{X: from.X - to.X, Y: from.Y - to.Y}
 		direction.Rotate(sign * 90)
 		direction.Normalize()
-		direction.Scale(trackwidth)
+		direction.Scale(Trackwidth)
 
 		to.MoveBy(direction)
 		modified.Push(to)
