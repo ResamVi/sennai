@@ -51,7 +51,7 @@ export default class MainScene extends Phaser.Scene
     {
         if(menuInput.name !== undefined)
         {
-            this.name = menuInput.name;
+            this.name = menuInput.name.replace(/(\r\n|\n|\r)/gm, "");;
         }
         else
         {
