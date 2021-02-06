@@ -32,6 +32,17 @@ export default class MainScene extends Phaser.Scene
 
     // which car that represents us and we will follow with the camera
     private id: number = 0;
+    
+    // Start-to-race countdown
+    private bigNumber: Phaser.GameObjects.Text;
+    private smallNumber: Phaser.GameObjects.Text;
+    
+    // on change of the big number trigger beep sound
+    private tick: number;
+    
+    // sound accompanied with count
+    private countBeep: Phaser.Sound.BaseSound;
+    private startBeep: Phaser.Sound.BaseSound;
 
     // conection to the server
     private socket: WebSocket;
@@ -63,6 +74,8 @@ export default class MainScene extends Phaser.Scene
     {
         this.load.image('car', 'assets/car.png');
         this.load.image('dot', 'assets/dot.png');
+        this.load.audio('count', 'assets/countBeep.mp3');
+        this.load.audio('start', 'assets/startBeep.mp3');
     }
 
     create ()
@@ -87,10 +100,25 @@ export default class MainScene extends Phaser.Scene
         this.cursors = this.input.keyboard.createCursorKeys();
                 
         this.scoreboard = this.add.text(-1280, -720, '', { font: '96px Courier', color: '#00ff00' });
-        
         this.scoreboard.setScrollFactor(0);
+
+        let centerX = this.cameras.main.worldView.x + this.cameras.main.width / 2;
+        let centerY = this.cameras.main.worldView.y + this.cameras.main.height / 2
+
+        this.bigNumber = this.add.text(centerX, centerY, '', { font: '512px Courier', color: '#ffffff', strokeThickness: 24 });
+        this.bigNumber.setScrollFactor(0);
+        this.bigNumber.setOrigin(0.5);
         
-        this.graphics = this.add.graphics({ lineStyle: { width: 2, color: 0xff0000 }, fillStyle: { color: 0x00ff00 } },);
+        this.smallNumber = this.add.text(centerX+256, centerY+64, '', { font: '128px Courier', color: '#ffffff', strokeThickness: 24 });
+        this.smallNumber.setScrollFactor(0);
+        this.smallNumber.setOrigin(0.5); 
+
+        this.tick = 0;
+
+        this.countBeep = this.sound.add('count');
+        this.startBeep = this.sound.add('start');
+
+        this.graphics = this.add.graphics({ lineStyle: { width: 2, color: 0xff0000 }, fillStyle: { color: 0x00ff00 }});
         
         this.cameras.main.setZoom(this.zoom);
     }
@@ -100,6 +128,7 @@ export default class MainScene extends Phaser.Scene
         this.graphics.clear();
 
         this.readControls();
+        //this.cameras.main.shake(1000, 0.025);
 
         //this.drawTrack();
         this.drawBestlist();
@@ -152,13 +181,13 @@ export default class MainScene extends Phaser.Scene
         let bestlist = this.cars.slice(0);
 
         bestlist.sort((a, b) => {
-            return b.percentage - a.percentage;
+            return b.progress - a.progress;
         });
     
 
         let string: Array<string> = ["Ranking:"];
         for(let i = 0; i < bestlist.length; i++)
-            string.push(`${this.pad(i+1, 2)}. ${this.pad(bestlist[i].name, 12)} | ${this.pad(bestlist[i].percentage, 2)}%`);
+            string.push(`${this.pad(i+1, 2)}. ${this.pad(bestlist[i].name, 12)} | ${this.pad(bestlist[i].progress, 2)}%`);
 
         this.scoreboard.setText(string);
     }
@@ -178,6 +207,10 @@ export default class MainScene extends Phaser.Scene
 
             case Protocol.TRACK:
                 this.updateTrack(payload);
+                break;
+
+            case Protocol.COUNTDOWN:
+                this.countDown(payload);
                 break;
             
             case Protocol.JOIN:
@@ -226,6 +259,34 @@ export default class MainScene extends Phaser.Scene
         this.track      = newtrack.track;
         this.inner      = newtrack.inner;
         this.outer      = newtrack.outer;
+    }
+
+    countDown(count)
+    {
+        let bigNumber = Math.floor(count / 10);
+        let smallNumber = Math.floor(count - bigNumber*10);
+
+        this.bigNumber.setText('' + bigNumber);
+        this.smallNumber.setText('.' + smallNumber);
+
+        if(bigNumber != this.tick && count > 0)
+        {
+            this.countBeep.play();
+            this.tick = bigNumber;
+        }
+
+        if(count <= -2)
+        {
+            this.bigNumber.setText('');
+            this.smallNumber.setText('');
+            return
+        }
+
+        if(count <= 0) {
+            this.bigNumber.setText('GO!');
+            this.smallNumber.setText('');
+            this.startBeep.play();
+        }
     }
 
     playerJoined(player)
@@ -298,5 +359,11 @@ export default class MainScene extends Phaser.Scene
     pad(str, length): string
     {
         return str.toString().padStart(length, ' ');
+    }
+
+    round(n, p): number
+    {
+        let pow = 10 * p;
+        return Math.floor(n*pow)/pow;
     }
 }

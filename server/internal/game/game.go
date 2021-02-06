@@ -14,14 +14,38 @@ import (
 	"gitlab.com/resamvi/sennai/pkg/pubsub"
 )
 
-const buffersize = 50
+// Phase describes the overall context of the current game
+type Phase int
+
+const (
+	// START players are teleported to the start and keeps them in place
+	START = iota
+
+	// COUNTDOWN the countdown is ticking
+	COUNTDOWN
+
+	// RACE players are racing to the finish line
+	RACE
+
+	// CLOSING a player has finished the race and a remainder countdown starts
+	CLOSING
+
+	// FINISH The standings are shown and a new track is loaded
+	FINISH
+)
+
+const (
+	countdownstart = 50 // start counting down from here (e.g. 99 converts to 9.9s )
+)
 
 // Game maintains a reference to all connected players
 type Game struct {
-	players sync.Map
-	clock   *time.Ticker
-	events  *pubsub.Pubsub
-	track   track.Track
+	players   sync.Map
+	clock     *time.Ticker
+	events    *pubsub.Pubsub
+	track     track.Track
+	phase     Phase
+	countdown int
 }
 
 // New creates a new game
@@ -31,6 +55,7 @@ func New() *Game {
 		clock:   time.NewTicker(30 * time.Millisecond),
 		events:  pubsub.New(),
 		track:   track.New(),
+		phase:   START,
 	}
 }
 
@@ -48,6 +73,16 @@ func (g *Game) Run() {
 // Update calculates the next frame given from the previous state and the registered inputs
 // Consider a call to Update a heart beat with each call being a game cycle
 func (g *Game) Update() {
+	if g.phase == START {
+		// TODO: Teleport
+		g.Countdown()
+		g.phase = COUNTDOWN
+	}
+
+	if g.phase == COUNTDOWN {
+		return
+	}
+
 	g.players.Range(func(k interface{}, v interface{}) bool {
 		player := v.(*player.Player)
 
@@ -62,8 +97,13 @@ func (g *Game) Update() {
 		}
 		player.Update(pointsTouching)
 
+		if g.phase == RACE && player.Progress == 100 {
+			g.phase = CLOSING
+		}
+
 		return true
 	})
+
 }
 
 // Connect registers a new connection to the game.
@@ -125,6 +165,27 @@ func (g *Game) SetPlayerName(name string, playerID int) {
 
 	g.players.Store(playerID, p)
 	g.events.Publish(protocol.JOIN, modified)
+}
+
+// Countdown initiates a countdown to zero
+func (g *Game) Countdown() {
+	g.countdown = countdownstart
+	g.phase = COUNTDOWN
+	go func() {
+		for range time.Tick(100 * time.Millisecond) {
+			g.countdown--
+
+			if g.countdown == 0 {
+				g.phase = RACE
+			}
+
+			if g.countdown <= -3 {
+				break
+			}
+
+			g.events.Publish(protocol.COUNTDOWN, g.countdown)
+		}
+	}()
 }
 
 // Track returns the currently used track layout

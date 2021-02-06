@@ -15,14 +15,15 @@ import (
 // determines how the accompanied payload should be interpreted
 // and what actions need to be taken
 const (
-	INIT   = "init"     // (server -> client) server sends initial data for the client to set up the game
-	UPDATE = "update"   // (server -> client) server broadcasts the current game state
-	JOIN   = "join"     // (server -> client) server notifies everyone a new player joined
-	LEAVE  = "leave"    // (server -> client) server notifies a player has left
-	TRACK  = "newtrack" // (server -> client) server sends everyone the new track layout
-	INPUT  = "input"    // (client -> server) client sends what arrow-keys are pressed
-	PLEASE = "trackpls" // (client -> server) client demands a new track should be generated
-	HELLO  = "hello"    // (client -> server) client introduces himself and tells server his name
+	INIT      = "init"     // (server -> client) server sends initial data for the client to set up the game
+	UPDATE    = "update"   // (server -> client) server broadcasts the current game state
+	JOIN      = "join"     // (server -> client) server notifies everyone a new player joined
+	LEAVE     = "leave"    // (server -> client) server notifies a player has left
+	TRACK     = "newtrack" // (server -> client) server sends everyone the new track layout
+	COUNTDOWN = "count"    // (server -> client) server counts down to zero before race starts
+	INPUT     = "input"    // (client -> server) client sends what arrow-keys are pressed
+	PLEASE    = "trackpls" // (client -> server) client demands a new track should be generated
+	HELLO     = "hello"    // (client -> server) client introduces himself and tells server his name
 )
 
 // Send will transfer messages to the client in compliance with the protocol.

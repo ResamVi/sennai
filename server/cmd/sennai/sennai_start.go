@@ -23,7 +23,11 @@ func main() {
 		w.Write([]byte("Hello, I'm up!"))
 	})
 
-	http.HandleFunc("/debug", player.ChangeVar)
+	http.HandleFunc("/playerdebug", player.ChangeVar)
+
+	http.HandleFunc("/gamedebug", func(w http.ResponseWriter, r *http.Request) {
+		game.ServeDebug(l, w, r)
+	})
 
 	log.Println("Starting on Port :7999")
 	log.Fatal(http.ListenAndServe(":7999", nil))

@@ -16,16 +16,16 @@ type Input struct {
 
 // Player represents a connected player
 type Player struct {
-	Name       string  `json:"name"`
-	ID         int     `json:"id"`
-	X          float64 `json:"x"`
-	Y          float64 `json:"y"`
-	Rotation   float64 `json:"rotation"`
-	Percentage float64 `json:"percentage"` // Percentage gives the progress in the range of 0 and 100
-	inside     []int   // indices to points of the track that are in range of the player
-	velocity   math.Vector
-	Input      Input
-	passed     []bool
+	Name     string  `json:"name"`
+	ID       int     `json:"id"`
+	X        float64 `json:"x"`
+	Y        float64 `json:"y"`
+	Rotation float64 `json:"rotation"`
+	Progress float64 `json:"progress"` // Progress gives the progress in the range of 0 and 100
+	inside   []int   // indices to points of the track that are in range of the player
+	velocity math.Vector
+	Input    Input
+	passed   []bool
 }
 
 var (
@@ -43,14 +43,14 @@ var (
 // New creates a new player pointing at the right direction on the track
 func New(id int, start math.Point, next math.Point, length int) Player {
 	return Player{
-		Name:       "<Loading>",
-		ID:         id,
-		X:          start.X,
-		Y:          start.Y,
-		Rotation:   math.VectorFromTo(start, next).Angle(),
-		Percentage: 0,
-		Input:      Input{Left: false, Right: false, Up: false, Down: false},
-		passed:     make([]bool, length),
+		Name:     "<Loading>",
+		ID:       id,
+		X:        start.X,
+		Y:        start.Y,
+		Rotation: math.VectorFromTo(start, next).Angle(),
+		Progress: 0,
+		Input:    Input{Left: false, Right: false, Up: false, Down: false},
+		passed:   make([]bool, length),
 	}
 }
 
@@ -134,7 +134,7 @@ func (p *Player) progress(points []int) {
 	}
 
 	p.inside = points
-	p.Percentage = math.Floor((p.furthest() / float64(len(p.passed)-1)) * 100)
+	p.Progress = math.Floor((p.furthest() / float64(len(p.passed)-1)) * 100)
 }
 
 // TODO: Fix ending
@@ -169,5 +169,5 @@ func (p Player) isOffroad() bool {
 }
 
 func (p Player) String() string {
-	return fmt.Sprintf("[%d.: %s - (%.1f, %.1f) %.1f° %.1f%%", p.ID, p.Name, p.X, p.Y, p.Rotation, p.Percentage)
+	return fmt.Sprintf("[%d.: %s - (%.1f, %.1f) %.1f° %.1f%%", p.ID, p.Name, p.X, p.Y, p.Rotation, p.Progress)
 }
