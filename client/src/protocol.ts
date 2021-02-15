@@ -11,12 +11,15 @@ const Protocol = {
      * determines how the accompanied payload should be interpreted
      * and what actions need to be taken
      */
-    INIT:       "init",         // (server -> client) server sends initial data for the client to set up the game
+    INIT:       "init",         // (server -> client) server sends initial data for the client to set up the game (response to HELLO)
     UPDATE:     "update",       // (server -> client) server broadcasts the current game state
     JOIN:       "join",         // (server -> client) server notifies everyone a new player joined
     LEAVE:      "leave",        // (server -> client) server notifies a player has left
     TRACK:      "newtrack",     // (server -> client) server sends everyone the new track layout
     COUNTDOWN:  "count",        // (server -> client) server counts down to zero before race starts
+    CLOSEDOWN:  "close",        // (server -> client) server counts down to zero before race will end
+    BESTLIST:   "best",         // (server -> client) server sends the ranking. a new game will start soon
+    REST:       "rest",         // (server -> client) server sends the countdown to the next game will start soon
     INPUT:      "input",        // (client -> server) client sends what arrow-keys are pressed
     PLEASE:     "trackpls",     // (client -> server) client demands a new track should be generated
     HELLO:      "hello",        // (client -> server) client introduces himself and tells server his name

@@ -12,6 +12,8 @@ func ServeDebug(g *Game, w http.ResponseWriter, r *http.Request) {
 		switch k {
 		case "countdown":
 			g.Countdown()
+		case "closedown":
+			g.Closedown()
 		default:
 			fmt.Println("unknown key: " + k)
 		}

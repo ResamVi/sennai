@@ -18,10 +18,10 @@ import (
 type Phase int
 
 const (
-	// START players are teleported to the start and keeps them in place
-	START = iota
+	// STARTING is a brief moment in which the game state is reset
+	STARTING = iota
 
-	// COUNTDOWN the countdown is ticking
+	// COUNTDOWN while the countdown is ticking players are kept in place
 	COUNTDOWN
 
 	// RACE players are racing to the finish line
@@ -30,32 +30,45 @@ const (
 	// CLOSING a player has finished the race and a remainder countdown starts
 	CLOSING
 
-	// FINISH The standings are shown and a new track is loaded
-	FINISH
+	// FINISHED The standings are shown and a new track is loaded
+	FINISHED
 )
 
 const (
-	countdownstart = 50 // start counting down from here (e.g. 99 converts to 9.9s )
+	// time until race start -  (countdownstart of e.g. 99 starts counting from 9.9s)
+	countdownstart = 70
+
+	// time until race finish after first reached end (in deci-seconds)
+	closedownstart = 50
+
+	// time (in s) in which the bestlist is displayed and until next race starts
+	restperiodlength = 6
 )
 
 // Game maintains a reference to all connected players
 type Game struct {
-	players   sync.Map
-	clock     *time.Ticker
-	events    *pubsub.Pubsub
-	track     track.Track
-	phase     Phase
-	countdown int
+	players    sync.Map
+	clock      *time.Ticker
+	events     *pubsub.Pubsub
+	track      track.Track
+	phase      Phase
+	starttime  time.Time
+	countdown  int
+	closedown  int
+	restperiod int
 }
 
 // New creates a new game
 func New() *Game {
 	return &Game{
-		players: sync.Map{},
-		clock:   time.NewTicker(30 * time.Millisecond),
-		events:  pubsub.New(),
-		track:   track.New(),
-		phase:   START,
+		players:    sync.Map{},
+		clock:      time.NewTicker(30 * time.Millisecond),
+		events:     pubsub.New(),
+		track:      track.New(),
+		phase:      STARTING,
+		countdown:  0,
+		closedown:  0,
+		restperiod: 0,
 	}
 }
 
@@ -64,8 +77,19 @@ func (g *Game) Run() {
 	for {
 		select {
 		case <-g.clock.C:
+
+			// Do not run the game if no players are online
+			if len(g.Players()) == 0 {
+				continue
+			}
+
 			g.Update()
-			g.events.Publish(protocol.UPDATE, g.Players())
+
+			if g.phase == FINISHED {
+				g.events.Publish(protocol.BESTLIST, g.Bestlist())
+			} else {
+				g.events.Publish(protocol.UPDATE, g.Players())
+			}
 		}
 	}
 }
@@ -73,13 +97,15 @@ func (g *Game) Run() {
 // Update calculates the next frame given from the previous state and the registered inputs
 // Consider a call to Update a heart beat with each call being a game cycle
 func (g *Game) Update() {
-	if g.phase == START {
-		// TODO: Teleport
+	if g.phase == STARTING {
+		g.ChangeTrack()
+		g.ResetAll()
 		g.Countdown()
 		g.phase = COUNTDOWN
 	}
 
-	if g.phase == COUNTDOWN {
+	// Don't need moving players in these phases
+	if g.phase == COUNTDOWN || g.phase == FINISHED {
 		return
 	}
 
@@ -88,22 +114,24 @@ func (g *Game) Update() {
 
 		circle := math.Circle{X: player.X, Y: player.Y, Radius: track.Trackwidth}
 		pointsTouching := make([]int, 0)
-		points := make([]math.Point, 0)
 		for i, p := range g.track.Track {
 			if circle.Contains(p) {
 				pointsTouching = append(pointsTouching, i)
-				points = append(points, p)
 			}
 		}
 		player.Update(pointsTouching)
 
 		if g.phase == RACE && player.Progress == 100 {
+			g.Closedown()
 			g.phase = CLOSING
+		}
+
+		if player.FinishTime == 0 && player.Progress == 100 {
+			player.FinishTime = time.Since(g.starttime)
 		}
 
 		return true
 	})
-
 }
 
 // Connect registers a new connection to the game.
@@ -167,7 +195,8 @@ func (g *Game) SetPlayerName(name string, playerID int) {
 	g.events.Publish(protocol.JOIN, modified)
 }
 
-// Countdown initiates a countdown to zero
+// Countdown initiates a starting countdown to zero
+// RACE -> COUNTDOWN
 func (g *Game) Countdown() {
 	g.countdown = countdownstart
 	g.phase = COUNTDOWN
@@ -177,6 +206,7 @@ func (g *Game) Countdown() {
 
 			if g.countdown == 0 {
 				g.phase = RACE
+				g.starttime = time.Now()
 			}
 
 			if g.countdown <= -3 {
@@ -188,14 +218,89 @@ func (g *Game) Countdown() {
 	}()
 }
 
+// Closedown initiates a closing countdown to zero
+// CLOSING -> FINISHED
+func (g *Game) Closedown() {
+	g.closedown = closedownstart
+	g.phase = CLOSING
+	go func() {
+		for range time.Tick(100 * time.Millisecond) {
+			g.closedown--
+
+			if g.closedown == -1 {
+				g.phase = FINISHED
+				g.Restperiod()
+				break
+			}
+
+			g.events.Publish(protocol.CLOSEDOWN, g.closedown)
+		}
+	}()
+}
+
+// func (g *Game) StartCounter(fromPhase, toPhase, startAt int, doAfter, prefix)
+
+// Restperiod initiates a countdown until the next game is started
+// FINISHED -> STARTING
+func (g *Game) Restperiod() {
+	g.restperiod = restperiodlength
+	g.phase = FINISHED
+	go func() {
+		for range time.Tick(1 * time.Second) {
+			g.restperiod--
+
+			if g.restperiod == -1 {
+				g.phase = STARTING
+				break
+			}
+
+			g.events.Publish(protocol.REST, g.restperiod)
+		}
+	}()
+}
+
+// Standing is an entry of the bestlist
+type Standing struct {
+	Name       string  `json:"name"`
+	FinishTime int64   `json:"finishTime"`
+	Progress   float64 `json:"progress"`
+}
+
+// Bestlist returns the sorted and viewable race standings of this round
+// has to be sorted and formatted by the client
+func (g *Game) Bestlist() []Standing {
+	list := make([]Standing, 0)
+	g.players.Range(func(k interface{}, v interface{}) bool {
+		player := v.(*player.Player)
+
+		standing := Standing{
+			Name:       player.Name,
+			FinishTime: player.FinishTime.Milliseconds(),
+			Progress:   player.Progress,
+		}
+
+		list = append(list, standing)
+
+		return true
+	})
+
+	return list
+}
+
 // Track returns the currently used track layout
 func (g *Game) Track() track.Track {
 	return g.track
 }
 
-//func (g Game) FinishRound() {
-// if player.progress > 80% && max(player.progress) == 100
-//}
+// ResetAll resets every player back to the start
+func (g *Game) ResetAll() {
+	g.players.Range(func(k interface{}, v interface{}) bool {
+		player := v.(*player.Player)
+		player.Reset(g.track.Track[10], g.track.Track[11], len(g.track.Track))
+
+		return true
+	})
+}
 
 // ChangeTrack changes the track of the game
 func (g *Game) ChangeTrack() {

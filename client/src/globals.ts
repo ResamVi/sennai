@@ -1,0 +1,1 @@
+export const ENDPOINT = 'ws://localhost:7999/ws';

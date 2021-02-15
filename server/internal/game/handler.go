@@ -35,19 +35,6 @@ func ServeWs(g *Game, w http.ResponseWriter, r *http.Request) {
 	playerID, sub := g.Connect()
 	defer g.Disconnect(playerID, sub)
 
-	// Send init/setup data to client
-	msg := toJSON("cars", g.Players())
-	msg = appendKey("id", playerID, msg)
-
-	t := g.Track()
-	msg = appendKey("track", t, msg)
-
-	err = protocol.Send(conn, protocol.INIT, msg)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-
 	// Start playing. Sending (write) state and receiving (read) inputs
 	go write(g, sub, conn)
 	read(g, conn, playerID)
@@ -110,6 +97,17 @@ func read(g *Game, conn *websocket.Conn, playerID int) {
 			}
 
 			g.SetPlayerName(name, playerID)
+
+			// Send init/setup data to client
+			msg := toJSON("cars", g.Players())
+			msg = appendKey("track", g.Track(), msg)
+			msg = appendKey("id", playerID, msg)
+
+			err = protocol.Send(conn, protocol.INIT, msg)
+			if err != nil {
+				log.Println(err)
+				return
+			}
 		}
 
 		log.Printf("RECEIVED: %s\n", message)

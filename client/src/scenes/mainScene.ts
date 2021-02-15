@@ -1,7 +1,6 @@
 import { Car } from '../car';
 import Protocol from '../protocol';
-
-const ENDPOINT = 'wss://online.resamvi.io/ws';
+import { ENDPOINT } from '../globals';
 
 export default class MainScene extends Phaser.Scene
 {
@@ -39,10 +38,16 @@ export default class MainScene extends Phaser.Scene
     
     // on change of the big number trigger beep sound
     private tick: number;
+
+    // race ending countdown
+    private topNumber: Phaser.GameObjects.Text;
     
     // sound accompanied with count
     private countBeep: Phaser.Sound.BaseSound;
     private startBeep: Phaser.Sound.BaseSound;
+
+    // true when the next scene has started loading
+    private switched: boolean;
 
     // conection to the server
     private socket: WebSocket;
@@ -56,20 +61,6 @@ export default class MainScene extends Phaser.Scene
         super('MainScene');
     }
 
-    // init is called when switching from startScene -> mainScene
-    // and transfers any inputted data to be used and displayed
-    init(menuInput)
-    {
-        if(menuInput.name !== undefined)
-        {
-            this.name = menuInput.name.replace(/(\r\n|\n|\r)/gm, "");;
-        }
-        else
-        {
-            this.name = 'Default';
-        }
-    }
-
     preload ()
     {
         this.load.image('car', 'assets/car.png');
@@ -80,9 +71,20 @@ export default class MainScene extends Phaser.Scene
 
     create ()
     {   
-        this.socket = new WebSocket(ENDPOINT);
+        this.socket = this.registry.get('socket');
+        
+        // On first visit, otherwise this is defined already
+        if(this.socket === undefined)
+        {
+            this.socket = new WebSocket(ENDPOINT);
+            this.socket.onopen = () => Protocol.send(this.socket, Protocol.HELLO, this.registry.get('name'));
+            this.registry.set('socket', this.socket);
+        }
+        else
+        {
+            Protocol.send(this.socket, Protocol.HELLO, this.registry.get('name'));
+        }
         this.socket.onmessage = ({data}) => this.read(data);
-        this.socket.onopen = () => Protocol.send(this.socket, Protocol.HELLO, this.name);
         
         this.input.on('wheel', (a, b, c, deltaY) => {
             this.zoom -= 0.0001 * deltaY;
@@ -113,10 +115,14 @@ export default class MainScene extends Phaser.Scene
         this.smallNumber.setScrollFactor(0);
         this.smallNumber.setOrigin(0.5); 
 
+        this.topNumber = this.add.text(centerX, -720, '', { font: '128px Courier', color: '#ffffff' });
+        this.topNumber.setScrollFactor(0);
+        this.topNumber.setOrigin(0.5); 
+
         this.tick = 0;
 
-        this.countBeep = this.sound.add('count');
-        this.startBeep = this.sound.add('start');
+        this.countBeep = this.sound.add('count', {volume: 0.05});
+        this.startBeep = this.sound.add('start', {volume: 0.05});
 
         this.graphics = this.add.graphics({ lineStyle: { width: 2, color: 0xff0000 }, fillStyle: { color: 0x00ff00 }});
         
@@ -180,14 +186,11 @@ export default class MainScene extends Phaser.Scene
     {
         let bestlist = this.cars.slice(0);
 
-        bestlist.sort((a, b) => {
-            return b.progress - a.progress;
-        });
-    
+        bestlist.sort((a, b) => b.percentage - a.percentage);     // TODO: grobe finish time hier
 
         let string: Array<string> = ["Ranking:"];
         for(let i = 0; i < bestlist.length; i++)
-            string.push(`${this.pad(i+1, 2)}. ${this.pad(bestlist[i].name, 12)} | ${this.pad(bestlist[i].progress, 2)}%`);
+            string.push(`${this.pad(i+1, 2)}. ${this.pad(bestlist[i].name, 12)} | ${this.pad(bestlist[i].percentage, 2)}%`);
 
         this.scoreboard.setText(string);
     }
@@ -212,7 +215,15 @@ export default class MainScene extends Phaser.Scene
             case Protocol.COUNTDOWN:
                 this.countDown(payload);
                 break;
+
+            case Protocol.CLOSEDOWN:
+                this.closeDown(payload);
+                break;
             
+            case Protocol.BESTLIST:
+                this.scene.start('FinishScene');
+                break;
+
             case Protocol.JOIN:
                 this.playerJoined(payload);
                 break;
@@ -223,12 +234,13 @@ export default class MainScene extends Phaser.Scene
         }
     }
 
-    initGame(initPackage) // TODO: types in protocol
+    initGame(initPackage)
     {
         this.id         = initPackage.id;        
         this.track      = initPackage.track.track;    
         this.inner      = initPackage.track.inner;
         this.outer      = initPackage.track.outer;
+        this.cars       = [];
 
         for(let car of initPackage.cars)
             this.cars.push(new Car(this, car.name, car.id));
@@ -256,9 +268,7 @@ export default class MainScene extends Phaser.Scene
 
     updateTrack(newtrack)
     {
-        this.track      = newtrack.track;
-        this.inner      = newtrack.inner;
-        this.outer      = newtrack.outer;
+        this.registry.set('track', newtrack);
     }
 
     countDown(count)
@@ -287,6 +297,11 @@ export default class MainScene extends Phaser.Scene
             this.smallNumber.setText('');
             this.startBeep.play();
         }
+    }
+
+    closeDown(count)
+    {
+        this.topNumber.setText('Race ends in: ' + count);
     }
 
     playerJoined(player)

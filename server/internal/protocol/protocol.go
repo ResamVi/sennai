@@ -15,16 +15,21 @@ import (
 // determines how the accompanied payload should be interpreted
 // and what actions need to be taken
 const (
-	INIT      = "init"     // (server -> client) server sends initial data for the client to set up the game
+	INIT      = "init"     // (server -> client) server sends initial data for the client to set up the game (response to HELLO)
 	UPDATE    = "update"   // (server -> client) server broadcasts the current game state
+	BESTLIST  = "best"     // (server -> client) server sends the ranking. a new game will start soon
 	JOIN      = "join"     // (server -> client) server notifies everyone a new player joined
 	LEAVE     = "leave"    // (server -> client) server notifies a player has left
 	TRACK     = "newtrack" // (server -> client) server sends everyone the new track layout
 	COUNTDOWN = "count"    // (server -> client) server counts down to zero before race starts
+	CLOSEDOWN = "close"    // (server -> client) server counts down to zero before race will end
+	REST      = "rest"     // (server -> client) server counts down to zero till the next game starts
 	INPUT     = "input"    // (client -> server) client sends what arrow-keys are pressed
-	PLEASE    = "trackpls" // (client -> server) client demands a new track should be generated
+	PLEASE    = "trackpls" // (client -> server) client demands a new track should be generated /////// TODO: Remove
 	HELLO     = "hello"    // (client -> server) client introduces himself and tells server his name
 )
+
+//TODO: protocol.go and protocol.ts not synced
 
 // Send will transfer messages to the client in compliance with the protocol.
 // An error may be returned because a websocket connection

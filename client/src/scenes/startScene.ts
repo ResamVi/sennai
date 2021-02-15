@@ -1,5 +1,3 @@
-import MainScene from './mainScene';
-
 export default class StartScene extends Phaser.Scene
 {
     private name: string = 'Schumacher';
@@ -34,7 +32,10 @@ export default class StartScene extends Phaser.Scene
             .setOrigin(0.5, 0.5)
             .on('pointerover', () => startText.setStyle({ color: '#ff0'}))
             .on('pointerout', () => startText.setStyle({ fill: '#0f0' }))
-            .on('pointerup', () => this.scene.start('MainScene', {name: this.name}));
+            .on('pointerup', () => {
+                this.registry.set('name', this.name);
+                this.scene.start('MainScene');
+            });
         
         (this.add as any).rexInputText(this.CENTER_X+55, this.CENTER_Y+90, 10, 10, {
             type: 'textarea',

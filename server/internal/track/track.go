@@ -17,7 +17,7 @@ const (
 	maxheight   = 6000.0
 	mindistance = 1500.0
 
-	difficulty      = 1
+	difficulty      = 5
 	maxdisplacement = 800
 
 	// Trackwidth is the width of center <-> border (i.e. total track width is 2*Trackwidth)

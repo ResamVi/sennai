@@ -2,6 +2,7 @@ package player
 
 import (
 	"fmt"
+	"time"
 
 	"gitlab.com/resamvi/sennai/pkg/math"
 )
@@ -16,22 +17,23 @@ type Input struct {
 
 // Player represents a connected player
 type Player struct {
-	Name     string  `json:"name"`
-	ID       int     `json:"id"`
-	X        float64 `json:"x"`
-	Y        float64 `json:"y"`
-	Rotation float64 `json:"rotation"`
-	Progress float64 `json:"progress"` // Progress gives the progress in the range of 0 and 100
-	inside   []int   // indices to points of the track that are in range of the player
-	velocity math.Vector
-	Input    Input
-	passed   []bool
+	Name       string  `json:"name"`
+	ID         int     `json:"id"`
+	X          float64 `json:"x"`
+	Y          float64 `json:"y"`
+	Rotation   float64 `json:"rotation"`
+	Progress   float64 `json:"progress"` // Progress gives the progress in the range of 0 and 100
+	FinishTime time.Duration
+	Input      Input
+	inside     []int // indices to points of the track that are in range of the player
+	velocity   math.Vector
+	passed     []bool
 }
 
 var (
 	turnspeed        = 4.0     // amount that front wheel turns
 	wheelbase        = 40.0    // distance from front to rear wheel
-	enginepower      = 4.0     // power to accelerate
+	enginepower      = 7.0     // power to accelerate
 	brakepower       = -2.0    // power to brake
 	ontrackfriction  = -0.06   // friction force applied by the asphalt ground
 	offtrackfriction = -0.3    // friction force applied by sand ground
@@ -60,6 +62,15 @@ func New(id int, start math.Point, next math.Point, length int) Player {
 func (p *Player) Update(points []int) {
 	p.physics()
 	p.progress(points)
+}
+
+// Reset teleports and alignts the player back to the track
+func (p *Player) Reset(start math.Point, next math.Point, length int) {
+	p.X = start.X
+	p.Y = start.Y
+	p.Progress = 0
+	p.Rotation = math.VectorFromTo(start, next).Angle()
+	p.passed = make([]bool, length)
 }
 
 func (p *Player) physics() {

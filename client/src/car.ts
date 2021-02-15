@@ -4,7 +4,7 @@ export class Car extends Phaser.Physics.Matter.Image
     public index: number;
     
     // % of progress on track
-    public progress: number;
+    public percentage: number;
 
     // name of player controlling this car
     private nametag: Phaser.GameObjects.Text;
@@ -15,7 +15,7 @@ export class Car extends Phaser.Physics.Matter.Image
         scene.add.existing(this);
 
         this.index = index;
-        this.progress = 0;
+        this.percentage = 0;
 
         this.nametag = scene.add.text(0, 0, name, { font: '64px Courier', color: '#ffffff' }).setOrigin(0.5);
         this.nametag.setScrollFactor(1);
@@ -32,7 +32,7 @@ export class Car extends Phaser.Physics.Matter.Image
         this.x              = carData.x;
         this.y              = carData.y;
         this.angle          = 360 + carData.rotation;
-        this.progress       = carData.progress;
+        this.percentage       = carData.progress;
         this.name           = carData.name;
         this.nametag.text   = carData.name;
         

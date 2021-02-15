@@ -1,7 +1,8 @@
 import 'phaser';
-import StartScene from './scenes/startScene';
 import InputTextPlugin from 'phaser3-rex-plugins/plugins/inputtext-plugin.js';
+import StartScene from './scenes/startScene';
 import MainScene from './scenes/mainScene';
+import FinishScene from './scenes/finishScene';
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
@@ -13,7 +14,7 @@ const config: Phaser.Types.Core.GameConfig = {
     width: 1280,
     height: 720
   },
-  scene: [StartScene, MainScene],
+  scene: [StartScene, MainScene, FinishScene],
   seed: ["Wow"],
   physics: {
     default: 'matter',
