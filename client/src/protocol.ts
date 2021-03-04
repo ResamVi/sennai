@@ -18,10 +18,9 @@ const Protocol = {
     TRACK:      "newtrack",     // (server -> client) server sends everyone the new track layout
     COUNTDOWN:  "count",        // (server -> client) server counts down to zero before race starts
     CLOSEDOWN:  "close",        // (server -> client) server counts down to zero before race will end
-    BESTLIST:   "best",         // (server -> client) server sends the ranking. a new game will start soon
+    BESTLIST:   "best",         // (server -> client) server sends the ranking
     REST:       "rest",         // (server -> client) server sends the countdown to the next game will start soon
     INPUT:      "input",        // (client -> server) client sends what arrow-keys are pressed
-    PLEASE:     "trackpls",     // (client -> server) client demands a new track should be generated
     HELLO:      "hello",        // (client -> server) client introduces himself and tells server his name
 
     /**

@@ -47,28 +47,24 @@ const (
 
 // Game maintains a reference to all connected players
 type Game struct {
-	players    sync.Map
-	clock      *time.Ticker
-	events     *pubsub.Pubsub
-	track      track.Track
-	phase      Phase
-	starttime  time.Time
-	countdown  int
-	closedown  int
-	restperiod int
+	players      sync.Map
+	clock        *time.Ticker
+	events       *pubsub.Pubsub
+	track        track.Track
+	phase        Phase
+	starttime    time.Time
+	roundsplayed int
 }
 
 // New creates a new game
 func New() *Game {
 	return &Game{
-		players:    sync.Map{},
-		clock:      time.NewTicker(30 * time.Millisecond),
-		events:     pubsub.New(),
-		track:      track.New(),
-		phase:      STARTING,
-		countdown:  0,
-		closedown:  0,
-		restperiod: 0,
+		players:      sync.Map{},
+		clock:        time.NewTicker(30 * time.Millisecond),
+		events:       pubsub.New(),
+		track:        track.New(),
+		phase:        STARTING,
+		roundsplayed: 0,
 	}
 }
 
@@ -98,13 +94,12 @@ func (g *Game) Run() {
 // Consider a call to Update a heart beat with each call being a game cycle
 func (g *Game) Update() {
 	if g.phase == STARTING {
-		g.ChangeTrack()
 		g.ResetAll()
 		g.Countdown()
 		g.phase = COUNTDOWN
 	}
 
-	// Don't need moving players in these phases
+	// Don't move players in these phases
 	if g.phase == COUNTDOWN || g.phase == FINISHED {
 		return
 	}
@@ -114,7 +109,7 @@ func (g *Game) Update() {
 
 		circle := math.Circle{X: player.X, Y: player.Y, Radius: track.Trackwidth}
 		pointsTouching := make([]int, 0)
-		for i, p := range g.track.Track {
+		for i, p := range g.track.Center {
 			if circle.Contains(p) {
 				pointsTouching = append(pointsTouching, i)
 			}
@@ -146,7 +141,10 @@ func (g *Game) Connect() (int, *pubsub.Subscription) {
 		}
 	}
 
-	player := player.New(id, g.track.Track[10], g.track.Track[11], len(g.track.Track))
+	// TODO: Calculate start position here
+	// TODO: Create progress slice here
+
+	player := player.New(id, g.track.Center[10], g.track.Center[11], len(g.track.Center))
 	g.players.Store(id, &player)
 
 	sub := g.events.Subscribe()
@@ -195,68 +193,52 @@ func (g *Game) SetPlayerName(name string, playerID int) {
 	g.events.Publish(protocol.JOIN, modified)
 }
 
-// Countdown initiates a starting countdown to zero
-// RACE -> COUNTDOWN
+// Countdown declares the remaining seconds until the race begins and players can move
+// Transitions game from phase COUNTDOWN -> RACE
 func (g *Game) Countdown() {
-	g.countdown = countdownstart
-	g.phase = COUNTDOWN
-	go func() {
-		for range time.Tick(100 * time.Millisecond) {
-			g.countdown--
-
-			if g.countdown == 0 {
-				g.phase = RACE
-				g.starttime = time.Now()
-			}
-
-			if g.countdown <= -3 {
-				break
-			}
-
-			g.events.Publish(protocol.COUNTDOWN, g.countdown)
-		}
-	}()
+	g.startCount(countdownstart, COUNTDOWN, RACE, 100*time.Millisecond, func() {
+		g.starttime = time.Now()
+	}, protocol.COUNTDOWN)
 }
 
-// Closedown initiates a closing countdown to zero
-// CLOSING -> FINISHED
+// Closedown declares the remaining time the race continues after the first player has crossed the finish line
+// Transitions game from phase CLOSING -> FINISHED
 func (g *Game) Closedown() {
-	g.closedown = closedownstart
-	g.phase = CLOSING
-	go func() {
-		for range time.Tick(100 * time.Millisecond) {
-			g.closedown--
+	g.startCount(closedownstart, CLOSING, FINISHED, 100*time.Millisecond, g.Restperiod, protocol.CLOSEDOWN)
+}
 
-			if g.closedown == -1 {
-				g.phase = FINISHED
-				g.Restperiod()
+// Restperiod declares the remaining time the bestlist is shown and a new race will begin
+// Transitions game from phase FINISHED -> STARTING
+func (g *Game) Restperiod() {
+	g.startCount(restperiodlength, FINISHED, STARTING, 1*time.Second, g.ChangeTrack, protocol.REST)
+}
+
+// Starts a countdown starting at `startAt` and going down to zero. While countdown the game's phase is in `currentPhase` and
+// will be at `endPhase` after the countdown completes. On completion `onFinish` will be called. All clients will be notified of the count
+// labelled by the protocol prefix `publishType`
+func (g *Game) startCount(startAt int, currentPhase Phase, endPhase Phase, tickInterval time.Duration, onFinish func(), publishType string) {
+	count := startAt
+	g.phase = currentPhase
+
+	go func() {
+		for range time.Tick(tickInterval) {
+			count--
+
+			if count < 0 {
+				g.phase = endPhase
+				onFinish()
 				break
 			}
 
-			g.events.Publish(protocol.CLOSEDOWN, g.closedown)
+			g.events.Publish(publishType, count)
 		}
 	}()
 }
 
-// func (g *Game) StartCounter(fromPhase, toPhase, startAt int, doAfter, prefix)
-
-// Restperiod initiates a countdown until the next game is started
-// FINISHED -> STARTING
-func (g *Game) Restperiod() {
-	g.restperiod = restperiodlength
-	g.phase = FINISHED
-	go func() {
-		for range time.Tick(1 * time.Second) {
-			g.restperiod--
-
-			if g.restperiod == -1 {
-				g.phase = STARTING
-				break
-			}
-
-			g.events.Publish(protocol.REST, g.restperiod)
-		}
-	}()
+// ChangeTrack changes the track of the game
+func (g *Game) ChangeTrack() {
+	g.track = track.New()
+	g.events.Publish(protocol.TRACK, g.track)
 }
 
 // Standing is an entry of the bestlist
@@ -296,16 +278,10 @@ func (g *Game) Track() track.Track {
 func (g *Game) ResetAll() {
 	g.players.Range(func(k interface{}, v interface{}) bool {
 		player := v.(*player.Player)
-		player.Reset(g.track.Track[10], g.track.Track[11], len(g.track.Track))
-
+		player.Reset(g.track.Center[10], g.track.Center[11], len(g.track.Center))
+		// TODO: Start Point should be part of track
 		return true
 	})
-}
-
-// ChangeTrack changes the track of the game
-func (g *Game) ChangeTrack() {
-	g.track = track.New()
-	g.events.Publish(protocol.TRACK, g.track)
 }
 
 // Players returns the currently connected clients as a slice

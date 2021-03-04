@@ -29,9 +29,9 @@ const (
 
 // Track repesents the layout and stores the outline and bounds of a track
 type Track struct {
-	Outer Outline `json:"outer"`
-	Track Outline `json:"track"`
-	Inner Outline `json:"inner"`
+	Outer  Outline `json:"outer"`
+	Center Outline `json:"center"`
+	Inner  Outline `json:"inner"`
 }
 
 // Outline is a chain of points to create a line
@@ -82,7 +82,7 @@ func New() Track {
 		}
 	}
 
-	return Track{Inner: inner, Track: track, Outer: outer}
+	return Track{Inner: inner, Center: track, Outer: outer}
 }
 
 // String returns a conscise representation of all points in the track

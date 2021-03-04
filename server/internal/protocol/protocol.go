@@ -5,7 +5,9 @@
 package protocol
 
 import (
+	"net/http"
 	"strings"
+	"sync"
 
 	"github.com/gorilla/websocket"
 )
@@ -17,26 +19,64 @@ import (
 const (
 	INIT      = "init"     // (server -> client) server sends initial data for the client to set up the game (response to HELLO)
 	UPDATE    = "update"   // (server -> client) server broadcasts the current game state
-	BESTLIST  = "best"     // (server -> client) server sends the ranking. a new game will start soon
 	JOIN      = "join"     // (server -> client) server notifies everyone a new player joined
 	LEAVE     = "leave"    // (server -> client) server notifies a player has left
 	TRACK     = "newtrack" // (server -> client) server sends everyone the new track layout
 	COUNTDOWN = "count"    // (server -> client) server counts down to zero before race starts
 	CLOSEDOWN = "close"    // (server -> client) server counts down to zero before race will end
-	REST      = "rest"     // (server -> client) server counts down to zero till the next game starts
+	BESTLIST  = "best"     // (server -> client) server sends the ranking
+	REST      = "rest"     // (server -> client) server sends the countdown to the next game will start soon
 	INPUT     = "input"    // (client -> server) client sends what arrow-keys are pressed
-	PLEASE    = "trackpls" // (client -> server) client demands a new track should be generated /////// TODO: Remove
 	HELLO     = "hello"    // (client -> server) client introduces himself and tells server his name
 )
 
-//TODO: protocol.go and protocol.ts not synced
+var upgrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+	CheckOrigin: func(r *http.Request) bool {
+		return r.Host == "localhost:7999" || r.Host == "online.resamvi.io"
+	},
+}
 
-// Send will transfer messages to the client in compliance with the protocol.
+type Conn struct {
+	wsCon *websocket.Conn
+	mu    sync.Mutex
+}
+
+// Upgrade upgrades the HTTP server connection to the WebSocket protocol.
+//
+// It retuns a connection that delegates everything to
+// gorilla's implementation methods BUT allows for concurrent writes (otherwise
+// gorilla may panic due to concurrent write to websocket connection, see:
+// https://github.com/gorilla/websocket/issues/119)
+func Upgrade(w http.ResponseWriter, r *http.Request) (*Conn, error) {
+	wsCon, err := upgrader.Upgrade(w, r, nil)
+
+	return &Conn{wsCon: wsCon}, err
+}
+
+// Close closes the underlying network connection without sending or waiting for a close message.
+func (conn *Conn) Close() error {
+	conn.mu.Lock()
+	defer conn.mu.Unlock()
+
+	return conn.wsCon.Close()
+}
+
+// ReadMessage reads a message sent from the client
+func (conn *Conn) ReadMessage() (messageType int, p []byte, err error) {
+	return conn.wsCon.ReadMessage()
+}
+
+// WriteMessage will transfer messages to the client in compliance with the protocol.
 // An error may be returned because a websocket connection
 // closed which needs to be handled by the caller (by e.g. closing the handler session)
-func Send(conn *websocket.Conn, typ string, str []byte) error {
+func (conn *Conn) WriteMessage(typ string, str []byte) error {
+	conn.mu.Lock()
+	defer conn.mu.Unlock()
+
 	data := append([]byte(typ+"|"), str...)
-	return conn.WriteMessage(websocket.TextMessage, data)
+	return conn.wsCon.WriteMessage(websocket.TextMessage, data)
 }
 
 // Parse will extract the content of a message sent by the client

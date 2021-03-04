@@ -32,7 +32,7 @@ export class Car extends Phaser.Physics.Matter.Image
         this.x              = carData.x;
         this.y              = carData.y;
         this.angle          = 360 + carData.rotation;
-        this.percentage       = carData.progress;
+        this.percentage     = carData.progress;
         this.name           = carData.name;
         this.nametag.text   = carData.name;
         

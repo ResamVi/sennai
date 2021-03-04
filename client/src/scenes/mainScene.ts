@@ -19,12 +19,8 @@ export default class MainScene extends Phaser.Scene
     // every player in the game
     private cars: Car[] = [];
     
-    // track to drive on
+    // track to drive on containing both bounds (inner, outer) and racing line (center)
     private track;
-    
-    // bounds of track
-    private inner;
-    private outer;
 
     // displayed on the nametag
     private name: string;
@@ -37,7 +33,7 @@ export default class MainScene extends Phaser.Scene
     private smallNumber: Phaser.GameObjects.Text;
     
     // on change of the big number trigger beep sound
-    private tick: number;
+    private tick: number = 0;
 
     // race ending countdown
     private topNumber: Phaser.GameObjects.Text;
@@ -45,9 +41,6 @@ export default class MainScene extends Phaser.Scene
     // sound accompanied with count
     private countBeep: Phaser.Sound.BaseSound;
     private startBeep: Phaser.Sound.BaseSound;
-
-    // true when the next scene has started loading
-    private switched: boolean;
 
     // conection to the server
     private socket: WebSocket;
@@ -73,15 +66,17 @@ export default class MainScene extends Phaser.Scene
     {   
         this.socket = this.registry.get('socket');
         
-        // On first visit, otherwise this is defined already
-        if(this.socket === undefined)
+        if(this.socket === undefined) // On first visit, otherwise this is defined already
         {
             this.socket = new WebSocket(ENDPOINT);
             this.socket.onopen = () => Protocol.send(this.socket, Protocol.HELLO, this.registry.get('name'));
             this.registry.set('socket', this.socket);
         }
-        else
+        else // We have completed a round and revisit this scene again for a new race
         {
+            let latest = this.registry.get('track');
+            this.track = latest.track;
+            
             Protocol.send(this.socket, Protocol.HELLO, this.registry.get('name'));
         }
         this.socket.onmessage = ({data}) => this.read(data);
@@ -89,14 +84,6 @@ export default class MainScene extends Phaser.Scene
         this.input.on('wheel', (a, b, c, deltaY) => {
             this.zoom -= 0.0001 * deltaY;
             this.cameras.main.setZoom(this.zoom);
-        });
-
-        this.input.keyboard.on('keydown-B', () => {
-            console.log(this.cars[0].x, this.cars[0].y);
-        });
-
-        this.input.keyboard.on('keydown-R', () => {
-            Protocol.send(this.socket, Protocol.PLEASE, {});
         });
 
         this.cursors = this.input.keyboard.createCursorKeys();
@@ -118,8 +105,6 @@ export default class MainScene extends Phaser.Scene
         this.topNumber = this.add.text(centerX, -720, '', { font: '128px Courier', color: '#ffffff' });
         this.topNumber.setScrollFactor(0);
         this.topNumber.setOrigin(0.5); 
-
-        this.tick = 0;
 
         this.countBeep = this.sound.add('count', {volume: 0.05});
         this.startBeep = this.sound.add('start', {volume: 0.05});
@@ -174,12 +159,12 @@ export default class MainScene extends Phaser.Scene
     {
         // Track line
         this.graphics.lineStyle(2, 0x00ff00);
-        this.graphics.strokePoints(this.track);
+        this.graphics.strokePoints(this.track.center);
         
         // Track bounds
         this.graphics.lineStyle(2, 0xff0000)
-        this.graphics.strokePoints(this.inner);
-        this.graphics.strokePoints(this.outer);
+        this.graphics.strokePoints(this.track.inner);
+        this.graphics.strokePoints(this.track.outer);
     }
 
     drawBestlist()
@@ -208,10 +193,6 @@ export default class MainScene extends Phaser.Scene
                 this.updateGame(payload);
                 break;
 
-            case Protocol.TRACK:
-                this.updateTrack(payload);
-                break;
-
             case Protocol.COUNTDOWN:
                 this.countDown(payload);
                 break;
@@ -236,18 +217,19 @@ export default class MainScene extends Phaser.Scene
 
     initGame(initPackage)
     {
-        this.id         = initPackage.id;        
-        this.track      = initPackage.track.track;    
-        this.inner      = initPackage.track.inner;
-        this.outer      = initPackage.track.outer;
-        this.cars       = [];
+        this.id     = initPackage.id;        
+        this.track  = initPackage.track;    
+        this.cars   = [];
 
         for(let car of initPackage.cars)
             this.cars.push(new Car(this, car.name, car.id));
         
         this.cameras.main.startFollow(this.cars[this.id], false);
+
+        console.log(this.cars);
     }
 
+    // TODO: We send the calculated ranking because sheesh....
     updateGame(gamestate)
     {
         for(let car of gamestate)
@@ -260,15 +242,10 @@ export default class MainScene extends Phaser.Scene
         }
     }
 
-    drawArrow(from, to)
+    drawArrow(from, to, color, thick)
     {   
-        this.graphics.lineStyle(10, 0xffa500)
-        this.graphics.lineBetween(from.x, from.y, from.x + to.x*50, from.y + to.y*50);
-    }
-
-    updateTrack(newtrack)
-    {
-        this.registry.set('track', newtrack);
+        this.graphics.lineStyle(thick, color);
+        this.graphics.lineBetween(from.x, from.y, from.x + to.x, from.y + to.y);
     }
 
     countDown(count)
@@ -279,23 +256,23 @@ export default class MainScene extends Phaser.Scene
         this.bigNumber.setText('' + bigNumber);
         this.smallNumber.setText('.' + smallNumber);
 
+        // Beep noise on every second
         if(bigNumber != this.tick && count > 0)
         {
             this.countBeep.play();
             this.tick = bigNumber;
         }
 
-        if(count <= -2)
+        if(count <= 0)
         {
-            this.bigNumber.setText('');
-            this.smallNumber.setText('');
-            return
-        }
-
-        if(count <= 0) {
             this.bigNumber.setText('GO!');
             this.smallNumber.setText('');
             this.startBeep.play();
+
+            setTimeout(() => {
+                this.bigNumber.setText('');
+                this.smallNumber.setText('');
+            }, 500);
         }
     }
 
@@ -310,12 +287,20 @@ export default class MainScene extends Phaser.Scene
             return;
 
         this.cars.push(new Car(this, player.name, player.id));
+        
+        let current = this.registry.get('cars');
+        current.push(player);
+        this.registry.set('cars', current);
     }
 
     playerLeft(playerID)
     {
         this.cars[playerID].destroy();
         this.cars.splice(playerID, 1);
+
+        let current = this.registry.get('cars');
+        current.splice(playerID, 1)
+        this.registry.set('cars', current);
     }
 
     debug()
@@ -328,11 +313,6 @@ export default class MainScene extends Phaser.Scene
         }*/
 
 
-        /*if(this.dir != undefined)
-        {
-            this.drawArrow({x: this.cars[0].x, y: this.cars[0].y}, this.dir);
-        }*/
-        
         // Rectangle of generated points
         this.graphics.lineStyle(5, 0x0000ff);
         //this.graphics.strokeRect(0, 0, this.MAX_WIDTH, this.MAX_HEIGHT);
@@ -341,7 +321,7 @@ export default class MainScene extends Phaser.Scene
         if(this.track != undefined)
         {
             this.graphics.lineStyle(2, 0xff0000)
-            this.graphics.strokePoints(this.track);
+            this.graphics.strokePoints(this.track.center);
             
             /*this.graphics.fillStyle(0xff0000);
             for(let p of this.track)
@@ -349,24 +329,24 @@ export default class MainScene extends Phaser.Scene
         }
 
         // Inner
-        if(this.inner != undefined)
+        if(this.track != undefined)
         {
             this.graphics.lineStyle(2, 0xffffff)
-            this.graphics.strokePoints(this.inner);
+            this.graphics.strokePoints(this.track.inner);
 
             this.graphics.fillStyle(0xffffff);
-            for(let p of this.inner)
+            for(let p of this.track.inner)
                 this.graphics.fillCircle(p.x, p.y, 20);
         }
 
         // Outer
-        if(this.outer != undefined)
+        if(this.track != undefined)
         {
             this.graphics.lineStyle(2, 0x00ffff)
-            this.graphics.strokePoints(this.outer);
+            this.graphics.strokePoints(this.track.outer);
 
             this.graphics.fillStyle(0x00ffff);
-            for(let p of this.outer)
+            for(let p of this.track.outer)
                 this.graphics.fillCircle(p.x, p.y, 20);
         }
     }

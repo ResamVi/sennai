@@ -6,26 +6,17 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/gorilla/websocket"
 	"gitlab.com/resamvi/sennai/internal/player"
 	"gitlab.com/resamvi/sennai/internal/protocol"
 	"gitlab.com/resamvi/sennai/pkg/pubsub"
 )
-
-var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-	CheckOrigin: func(r *http.Request) bool {
-		return r.Host == "localhost:7999" || r.Host == "online.resamvi.io"
-	},
-}
 
 // ServeWs should be used and served by a http server to handle websocket requests
 func ServeWs(g *Game, w http.ResponseWriter, r *http.Request) {
 	log.Println("Request to /ws")
 
 	// change to websocket connection
-	conn, err := upgrader.Upgrade(w, r, nil)
+	conn, err := protocol.Upgrade(w, r)
 	if err != nil {
 		log.Fatalln("UPGRADE: " + err.Error())
 	}
@@ -42,7 +33,7 @@ func ServeWs(g *Game, w http.ResponseWriter, r *http.Request) {
 
 // write will push changes of the game state (being notified thanks to the
 // supplied subscription) to the websocket connection to be sent to the client
-func write(g *Game, sub *pubsub.Subscription, conn *websocket.Conn) {
+func write(g *Game, sub *pubsub.Subscription, conn *protocol.Conn) {
 	for {
 		event := <-sub.Ch
 
@@ -52,7 +43,7 @@ func write(g *Game, sub *pubsub.Subscription, conn *websocket.Conn) {
 			log.Fatalln("WRITE: " + err.Error())
 		}
 
-		err = protocol.Send(conn, event.Typ, msg.Bytes())
+		err = conn.WriteMessage(event.Typ, msg.Bytes())
 		if err != nil {
 			log.Println(err)
 			break
@@ -66,7 +57,7 @@ func write(g *Game, sub *pubsub.Subscription, conn *websocket.Conn) {
 
 // read will pull messages from the websocket connection sent from the client
 // to parse and act upon them
-func read(g *Game, conn *websocket.Conn, playerID int) {
+func read(g *Game, conn *protocol.Conn, playerID int) {
 	for {
 		_, message, err := conn.ReadMessage()
 		if err != nil {
@@ -86,8 +77,6 @@ func read(g *Game, conn *websocket.Conn, playerID int) {
 			}
 
 			g.SetPlayerInput(input, playerID)
-		case protocol.PLEASE: // TODO: Remove. Do not give players the ability to change the map
-			g.ChangeTrack()
 		case protocol.HELLO:
 			var name string
 
@@ -99,11 +88,12 @@ func read(g *Game, conn *websocket.Conn, playerID int) {
 			g.SetPlayerName(name, playerID)
 
 			// Send init/setup data to client
+			// TODO: Use anonymous structs
 			msg := toJSON("cars", g.Players())
 			msg = appendKey("track", g.Track(), msg)
 			msg = appendKey("id", playerID, msg)
 
-			err = protocol.Send(conn, protocol.INIT, msg)
+			err = conn.WriteMessage(protocol.INIT, msg)
 			if err != nil {
 				log.Println(err)
 				return

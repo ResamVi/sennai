@@ -48,5 +48,7 @@ export default class StartScene extends Phaser.Scene
 
         this.add.image(this.CENTER_X, this.CENTER_Y-100, 'logo');
         this.add.image(this.CENTER_X, this.CENTER_Y-50, 'title').setOrigin(0.5, 0.5);
+
+        this.registry.set('cars', []);
     }
 }
