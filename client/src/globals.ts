@@ -1,1 +1,1 @@
-export const ENDPOINT = 'ws://localhost:7999/ws';
+export const ENDPOINT = 'wss://resamvi.io:7999/ws';
