@@ -1,14 +1,12 @@
 version: '3'
 
 services:
-  sennai-client:
+  client:
     build: "client/."
-    container_name: "sennai-client"
     ports:
       - '5959:80'
 
-  sennai-server:
+  server:
     build: server/.
-    container_name: "sennai-server"
     ports:
       - '7999:7999'
