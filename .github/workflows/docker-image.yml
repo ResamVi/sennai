@@ -1,0 +1,28 @@
+name: Deploy Caddy
+
+on:
+  push:
+    branches: [ master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: executing remote ssh commands using password
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.HOST }}
+        username: ${{ secrets.USERNAME }}
+        password: ${{ secrets.PASSWORD }}
+        port: ${{ secrets.PORT }}
+        script: |
+          git clone git@github.com:ResamVi/sennai.git repo
+          cd repo
+          docker build client/. -t sennai_web
+          docker build server/. -t sennai_server
+          docker container rm -f sennai_web
+          docker container rm -f sennai_server
+          docker run -d -p 127.0.0.1:84:80 --name sennai_web sennai_web
+          docker run -d -p 127.0.0.1:8004:7999 --name sennai_server sennai_server
+          cd ..
+          rm -rf repo
